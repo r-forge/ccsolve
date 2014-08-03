@@ -1,0 +1,10 @@
+inst/.*[.]dll
+inst/doc/.*[.]dll
+inst/doc/dynload/.*[.]dll
+inst/doc/.*[.]d
+inst/doc/.*[.]o
+inst/doc/.*[.]rc
+^Rplots.pdf$
+work
+src/.*[.]dll
+todo.txt
