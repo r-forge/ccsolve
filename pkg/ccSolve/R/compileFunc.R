@@ -80,11 +80,23 @@ create.init <- function (pars, pname, language, subname, parms, ...) {
 
     code <- paste(code, defines, "void ", subname, 
       "(void (* ode",parms,")(int *, double *)){\n int i;\n    int N =", npar, 
-              ";\n    ode",parms,"(&N, ",parms,")", sep = "")
-    cl <- c(0, cumsum(unlist(lapply(pars, FUN = length))))
-    for (i  in 1:length(pnames))
-      code <- paste(code, "\nfor (i = ", cl[i], "; i < ", cl[i+1], "; i++)\n ",
-        pnames[i], "[i-",cl[i],"] = parms[i];",sep = "")
+              ";\n    ode",parms,"(&N, ",parms,");", sep = "")
+    cdim <- unlist(lapply(pars, FUN = length))
+    cl <- c(0, cumsum(cdim))
+
+    for (i  in 1:length(pnames))  {
+      if (cdim[i] > 1)
+        if (i > 1)
+          code <- paste(code, "\nfor (i = ", cl[i], "; i < ", cl[i+1], "; i++)\n ",
+          pnames[i], "[i-",cl[i],"] = parms[i];",sep = "")
+        else
+         code <- paste(code, "\nfor (i = ", cl[i], "; i < ", cl[i+1], "; i++)\n ",
+          pnames[i], "[i] = parms[i];",sep = "")
+           
+      else
+        code <- paste(code, "\n", pnames[i], " = parms[",cl[i],"];",sep = "")
+          
+    }
     code <- paste(code, ";\n}")          
     head <- ""          
   
