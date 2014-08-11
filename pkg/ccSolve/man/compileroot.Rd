@@ -56,7 +56,7 @@ In case Fortran or F95 is used, \code{n} is an integer value,
 
 \code{ipar} and \code{rpar} are an integer vector, and double vector that are not used).  
 
-\code{y}, and \code{f} are double vectors of length \code{n}.
+\code{x}, and \code{f} are double vectors of length \code{n}.
 \code{df} is a double precision matrix of dimension \code{n, n} that contains the jacobian.
 
 In case C or C++ are used all are pointers. 
@@ -64,7 +64,7 @@ In case C or C++ are used all are pointers.
 the values of \code{df} are set to 0 at the beginning of the subroutine.
 
 The variables n, t, ipar and rpar should be ignored.
-The user needs to specify \code{f, df}, based on \code{y}
+The user needs to specify \code{f, df}, based on \code{x}
 
 }
 

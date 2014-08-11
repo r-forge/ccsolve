@@ -154,7 +154,7 @@ cbnd <- compile.bvp(func = fbnd, jacfunc = fjac, bound = fbound,
 ## ------------------------
 
 print(system.time(Sol <- bvptwp(x = x, leftbc = 1, func = cbnd, 
-        n = 2, verbose = TRUE, parms = parms)))
+        ncomp = 2, verbose = TRUE, parms = parms)))
 plot(Sol, which = 1)
 
 ## ============================================================================
@@ -191,7 +191,7 @@ cbnd.C <- compile.bvp(func = fbnd.C, bound = fbound.C, parms = parms,
 ## ------------------------
 
 print(system.time(Sol <- bvpcol(x = x, leftbc = 1, func = cbnd.C, order = 2,
-        n = 2, verbose = TRUE, parms = parms)))
+        ncomp = 2, verbose = TRUE, parms = parms)))
 plot(Sol, which = 1)
 
 
@@ -241,7 +241,7 @@ parms <- c(Pe = 1)
 forcs <- "R"
 
 cfreac.F <- compile.bvp(func = freac2, bound = greac, parms = parms, 
-  forcs = forcs, language = "Fortran")
+  forcings = forcs, language = "Fortran")
 
 ## ------------------------
 ## Solution 1

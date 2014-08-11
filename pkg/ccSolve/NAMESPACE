@@ -1,7 +1,9 @@
+useDynLib(ccSolve)
+
 import(deSolve)
 import(bvpSolve)
 export(compile.bvp, compile.ode, compile.dae, compile.pde, compile.root, 
-  print.code, load.cc, save.cc)
+  compile.optim, print.code, load.cc, save.cc, ccoptim)
 
 
 

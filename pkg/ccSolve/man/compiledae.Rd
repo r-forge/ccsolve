@@ -9,7 +9,7 @@
 }
 \usage{
  compile.dae (res, rootfunc = NULL, eventfunc = NULL,       
-      parms = NULL, forcings = NULL, outnames = NULL,
+      parms = NULL, forcings = NULL, outnames = NULL, y = NULL,
       declaration = character(), includes = character(), 
       language = "F95", ...)
 }
@@ -111,7 +111,7 @@ See however \code{vignette("compiledCode")} how to write this using regular text
 resDAE <- function(t, y, dy, parms) {
 
     f1     <- dy[1] - y[2]
-    f2     <- y[1] - cos(x)
+    f2     <- y[1] - cos(t)
 
     list(c(f1, f2))
 }
@@ -127,7 +127,7 @@ print(system.time(out   <- daspk(times = times, res = resDAE, y = yini,
 
 fresDAE <- " 
    r(1) = dy(1) - y(2)
-   r(2) = y(1) - cos(x)
+   r(2) = y(1) - cos(t)
 "
 cDAE <- compile.dae(res = fresDAE) 
 print(system.time(out2 <- daspk(times = times, res = cDAE, y = yini,
@@ -147,7 +147,7 @@ K <- 1
 # parameters
 pars <- c(K     = K  ,
           ka    = 1e6,     # forward rate
-          r     = 1  ,
+          rr    = 1  ,
           prod  = 0.1)
 
 #---------------------------------------------------------
@@ -161,7 +161,7 @@ Chemres <- function (t, y, dy, pars){
     # residuals of rates of changes
     res1 <- -dD  - ra + rb + prod
     res2 <- -dA  + ra - rb
-    res3 <- -dB  + ra - rb - r*B
+    res3 <- -dB  + ra - rb - rr*B
     return(list(res = c(res1, res2, res3),
                 CONC = A + B + D))
   })
@@ -175,27 +175,27 @@ dy <- c(dA = 0, dB = 0, dD = 0)
 PD <- matrix(nr = 3, nc = 3, 0)
 
 print(system.time(
-  ODE_R2 <- daspk(y = y, dy = dy, times = times, res = Chemres,
-                            parms = pars, atol = 1e-10, rtol = 1e-10)
+  outR <- daspk(y = y, dy = dy, times = times, res = Chemres,
+                parms = pars, atol = 1e-10, rtol = 1e-10)
 ))
 
 # -------------------
 # Fortran
 # -------------------
 DAE.f <- "
-      
       ra  = ka* y(3)            ! forward rate
       rb  = ka/K *y(1) * y(2)   ! backward rate
 
       ! residuals of rates of changes
       r(3) = -dy(3)  -  ra + rb + prod
       r(1) = -dy(1)  +  ra - rb
-      r(2) = -dy(2)  +  ra - rb - r*y(2)
+      r(2) = -dy(2)  +  ra - rb - rr*y(2)
       CONC   = y(1) + y(2) + y(3)
 "      
 cDAE <- compile.dae(res = DAE.f,  parms = pars, outnames = "CONC",
-  header = "DOUBLE PRECISION :: ra, rb")
-  out <- daspk(y = y, dy = dy, times = times, res = cDAE, outnames = "CONC",
+  declaration = "DOUBLE PRECISION :: ra, rb")
+
+out <- daspk(y = y, dy = dy, times = times, res = cDAE, outnames = "CONC",
                nout = 1, parms = pars, atol = 1e-10, rtol = 1e-10)
 
 ## =======================================================================
