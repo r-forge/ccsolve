@@ -130,18 +130,7 @@ ccoptim <-
     } else .Call("call_optim", par, fn1, gr1, method, con, lower, 
       upper, as.double(rpar), as.integer(ipar), package = "ccSolve")
     if (hessian)
-        res$hessian <- .Call("call_optimhess", res$par, fn1, gr1, con, rho, PACKAGE = "ccSolve")
+        res$hessian <- .Call("call_optimhess", res$par, fn1, gr1, con, 
+          as.double(rpar), as.integer(ipar), PACKAGE = "ccSolve")
     res
-}
-
-ccoptimHess <- function(par, fn, gr = NULL, ..., control = list())
-{
-    fn1 <- function(par) fn(par,...)
-    rho <- environment(fn)
-    gr1 <- if (!is.null(gr)) function(par) gr(par,...)
-    npar <- length(par)
-    con <- list(fnscale = 1, parscale = rep.int(1, npar),
-                ndeps = rep.int(1e-3, npar))
-    con[(names(control))] <- control
-    .Call("call_optimhess", par, fn1, gr1, con, rho, PACKAGE = "ccSolve")
 }

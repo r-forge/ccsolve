@@ -17,6 +17,11 @@
 C_func_type *fcall = NULL;
 C_jac_type *gcall = NULL;
 
+double* parcopy;
+double* grads;
+int hasgn; 
+double* rpar;
+int* ipar; 
 
 SEXP getListElement(SEXP list, char *str)
 {
@@ -36,19 +41,17 @@ static double * vect(int n)
     return (double *)R_alloc(n, sizeof(double));
 }
 
-/* karline: this has changed; has now parcopy - maybe also rpar, ipar? */
+
 typedef struct opt_struct
 {
+    SEXP R_fcall;    /* function */
+    SEXP R_gcall;    /* gradient */
+    SEXP R_env;      /* where to evaluate the calls */
     double* ndeps;   /* tolerances for numerical derivatives */
     double fnscale;  /* scaling for objective */
     double* parscale;/* scaling for parameters */
-    double* parcopy;
-    double* grads;
     int usebounds;
-    int hasgn; 
     double* lower, *upper;
-    double* rpar;
-    int* ipar; 
     SEXP names;	     /* names for par */
 } opt_struct, *OptStruct;
 
@@ -62,12 +65,14 @@ static double fminfn_cc(int n, double *p, void *ex)
 
     for (i = 0; i < n; i++) {
   	  if (!R_FINITE(p[i])) error("non-finite value supplied by optim");
-	    OS->parcopy[i] = p[i] * (OS->parscale[i]);
+	    parcopy[i] = p[i] * (OS->parscale[i]);
     }
 
-    fcall(&n, OS->parcopy, &val, OS->rpar, OS->ipar);    
+    fcall(&n, parcopy, &val, rpar, ipar);    
+
 
     val = val/(OS->fnscale);
+//  	error("till here val %g %g %i", val, rpar[0], ipar[0]);	
     return val;
 }
 
@@ -77,22 +82,22 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
   double val1, val2, eps, epsused, tmp;
   OptStruct OS = (OptStruct) ex;
 
-  if (OS->hasgn == 1) { /* analytical derivatives */
+  if (hasgn == 1) { /* analytical derivatives */
 
 	  for (i = 0; i < n; i++) {
 	    if (!R_FINITE(p[i])) error("non-finite value supplied by optim");
-	    OS->parcopy[i] = p[i] * (OS->parscale[i]);
+	    parcopy[i] = p[i] * (OS->parscale[i]);
 	  }
 
-    gcall(&n, OS->parcopy, OS->grads, OS->rpar, OS->ipar);    
+    gcall(&n, parcopy, grads, rpar, ipar);    
 
 	  for (i = 0; i < n; i++)
-	    df[i] = OS->grads[i] * (OS->parscale[i])/(OS->fnscale);
+	    df[i] = grads[i] * (OS->parscale[i])/(OS->fnscale);
 
   } else { /* numerical derivatives */
 	  for (i = 0; i < n; i++) {
 	    if (!R_FINITE(p[i])) error("non-finite value supplied by optim");
-	    OS->parcopy[i] = p[i] * (OS->parscale[i]);
+	    parcopy[i] = p[i] * (OS->parscale[i]);
 	  }
 
   
@@ -100,18 +105,18 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
 	    for (i = 0; i < n; i++) {
   		eps = OS->ndeps[i];
 
-		  OS->parcopy[i] = (p[i] + eps) * (OS->parscale[i]);
-	    fcall(&n, OS->parcopy, &val1, OS->rpar, OS->ipar);    
+		  parcopy[i] = (p[i] + eps) * (OS->parscale[i]);
+	    fcall(&n, parcopy, &val1, rpar, ipar);    
    		val1 = val1/(OS->fnscale);
 
-		  OS->parcopy[i] = (p[i] - eps) * (OS->parscale[i]);
-	    fcall(&n, OS->parcopy, &val2, OS->rpar, OS->ipar);    
+		  parcopy[i] = (p[i] - eps) * (OS->parscale[i]);
+	    fcall(&n, parcopy, &val2, rpar, ipar);    
    		val2 = val2/(OS->fnscale);
 
   		df[i] = (val1 - val2)/(2 * eps);
 		  if(!R_FINITE(df[i]))
 		    error(("non-finite finite-difference value [%d]"), i+1);
-		  OS->parcopy[i] = p[i] * (OS->parscale[i]);
+		  parcopy[i] = p[i] * (OS->parscale[i]);
 	    }
 	  } else { /* usebounds */
 	    for (i = 0; i < n; i++) {
@@ -121,8 +126,8 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
 		      tmp = OS->upper[i];
 		      epsused = tmp - p[i];
 		    }
-		   OS->parcopy[i] = tmp * (OS->parscale[i]);
-  	   fcall(&n, OS->parcopy, &val1, OS->rpar, OS->ipar);    
+		   parcopy[i] = tmp * (OS->parscale[i]);
+  	   fcall(&n, parcopy, &val1, rpar, ipar);    
    		 val1 = val1/(OS->fnscale);
 
   		 tmp = p[i] - eps;
@@ -130,15 +135,15 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
 		    tmp = OS->lower[i];
 		    eps = p[i] - tmp;
 	   	 }
-		   OS->parcopy[i] = tmp * (OS->parscale[i]);
-  	   fcall(&n, OS->parcopy, &val2, OS->rpar, OS->ipar);    
+		   parcopy[i] = tmp * (OS->parscale[i]);
+  	   fcall(&n, parcopy, &val2, rpar, ipar);    
    		 val2 = val2/(OS->fnscale);
 
 
    		 df[i] = (val1 - val2)/(epsused + eps);
 		   if(!R_FINITE(df[i]))
 		    error(("non-finite finite-difference value [%d]"), i+1);
-		  OS->parcopy[i] = p[i] * (OS->parscale[i]);
+		  parcopy[i] = p[i] * (OS->parscale[i]);
 	    }
 	  }
   }
@@ -147,7 +152,7 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
 
 /* par fn gr method options upper, lower*/                              
 SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options, 
-                SEXP slower, SEXP supper, SEXP rpar, SEXP ipar)
+                SEXP slower, SEXP supper, SEXP Rpar, SEXP Ipar)
 {
     SEXP tmp;
     SEXP res, value, counts, conv;
@@ -163,15 +168,15 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
 
     OS->names = getAttrib(par, R_NamesSymbol);
 
-    np = LENGTH(ipar);
-    OS->ipar = (int *) R_alloc(np, sizeof(int));
+    np = LENGTH(Ipar);
+    ipar = (int *) R_alloc(np, sizeof(int));
     for (i = 0; i < np; i++)
-      OS->ipar[i] = INTEGER(ipar)[i];
+      ipar[i] = INTEGER(Ipar)[i];
 
-    np = LENGTH(rpar);
-    OS->rpar = (double *) R_alloc(np, sizeof(double));
+    np = LENGTH(Rpar);
+    rpar = (double *) R_alloc(np, sizeof(double));
     for (i = 0; i < np; i++)
-      OS->rpar[i] = REAL(rpar)[i];
+      rpar[i] = REAL(Rpar)[i];
 
     if (!inherits(fn, "NativeSymbol")) 
        error("'fn' is not a compiled function");
@@ -186,8 +191,8 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
     opar = vect(npar);
     
     /* karline : global pars */
-    OS->parcopy = vect(npar);
-    OS->grads = vect(npar);
+    parcopy = vect(npar);
+    grads = vect(npar);
     
     trace = asInteger(getListElement(options, "trace"));
     OS->fnscale = asReal(getListElement(options, "fnscale"));
@@ -229,14 +234,14 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
 
     if (strcmp(tn, "Nelder-Mead") != 0) {
     
-    if (!isNull(gr)) {
-     OS->hasgn = 1; 
-     if (!inherits(gr, "NativeSymbol")) 
+     if (!isNull(gr)) {
+       hasgn = 1; 
+       if (!inherits(gr, "NativeSymbol")) 
         error("'gr' is not a compiled function");
-      gcall = (C_jac_type *) R_ExternalPtrAddr(gr);  
-	  } else {
-      OS->hasgn = 0;
-	  }
+       gcall = (C_jac_type *) R_ExternalPtrAddr(gr);  
+	   } else {
+       hasgn = 0;
+ 	   }
    }
     if (strcmp(tn, "Nelder-Mead") == 0) {
 	double alpha, beta, gamm;
@@ -257,9 +262,12 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
 	if (trace) trace = asInteger(getListElement(options, "REPORT"));
 	if (tmax == NA_INTEGER || tmax < 1) // PR#15194
 	    error("'tmax' is not a positive integer");
-	
+
+  PROTECT(OS->R_gcall = R_NilValue); /* to generate new values... */
+
 	samin (npar, dpar, &val, fminfn_cc, maxit, tmax, temp, trace, (void *)OS);
-	for (i = 0; i < npar; i++)
+  UNPROTECT(1);
+  for (i = 0; i < npar; i++)
 	    REAL(par)[i] = dpar[i] * (OS->parscale[i]);
 	fncount = npar > 0 ? maxit : 1;
 	grcount = NA_INTEGER;
@@ -357,40 +365,58 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
     return res;
 }
 
-/* par fn gr options  
-SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP rho)
+/* par fn gr options */ 
+SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP Rpar, SEXP Ipar)
 {
     SEXP tmp, ndeps, ans;
     OptStruct OS;
-    int npar, i , j;
+    int npar, np, i , j;
     double *dpar, *df1, *df2, eps;
-    optimgr *fmingr;
 
     OS = (OptStruct) R_alloc(1, sizeof(opt_struct));
     OS->usebounds = 0;
-    OS->R_env = rho;
 
     npar = LENGTH(par);
     OS->names = getAttrib(par, R_NamesSymbol);
 
-    if (!isFunction(fn)) error("'fn' is not a function");
+    np = LENGTH(Ipar);
+    ipar = (int *) R_alloc(np, sizeof(int));
+    for (i = 0; i < np; i++)
+      ipar[i] = INTEGER(Ipar)[i];
+
+    np = LENGTH(Rpar);
+    rpar = (double *) R_alloc(np, sizeof(double));
+    for (i = 0; i < np; i++)
+      rpar[i] = REAL(Rpar)[i];
+
+    if (!inherits(fn, "NativeSymbol")) 
+       error("'fn' is not a compiled function");
+    fcall = (C_func_type *) R_ExternalPtrAddr(fn);  
 
     OS->fnscale = asReal(getListElement(options, "fnscale"));
     tmp = getListElement(options, "parscale");
+    
     if (LENGTH(tmp) != npar)
-	error("'parscale' is of the wrong length");
+ 	    error("'parscale' is of the wrong length");
+
     PROTECT(tmp = coerceVector(tmp, REALSXP));
     OS->parscale = vect(npar);
     for (i = 0; i < npar; i++) OS->parscale[i] = REAL(tmp)[i];
     UNPROTECT(1);
-    PROTECT(OS->R_fcall = lang2(fn, R_NilValue));
-    PROTECT(par = coerceVector(par, REALSXP));
+
+    /* karline : global pars */
+    parcopy = vect(npar);
+    grads = vect(npar);
+
     if (!isNull(gr)) {
-	if (!isFunction(gr)) error("'gr' is not a function");
-	PROTECT(OS->R_gcall = lang2(gr, R_NilValue));
-    } else {
-	PROTECT(OS->R_gcall = R_NilValue); 
-    }
+      hasgn = 1; 
+      if (!inherits(gr, "NativeSymbol")) 
+        error("'gr' is not a compiled function");
+      gcall = (C_jac_type *) R_ExternalPtrAddr(gr);  
+	  } else {
+      hasgn = 0;
+ 	  }
+
     ndeps = getListElement(options, "ndeps");
     if (LENGTH(ndeps) != npar) error("'ndeps' is of the wrong length");
     OS->ndeps = vect(npar);
@@ -400,23 +426,23 @@ SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP rho)
     PROTECT(ans = allocMatrix(REALSXP, npar, npar));
     dpar = vect(npar);
     for (i = 0; i < npar; i++)
-	dpar[i] = REAL(par)[i] / (OS->parscale[i]);
+	   dpar[i] = REAL(par)[i] / (OS->parscale[i]);
     df1 = vect(npar);
     df2 = vect(npar);
     for (i = 0; i < npar; i++) {
-	eps = OS->ndeps[i]/(OS->parscale[i]);
-	dpar[i] = dpar[i] + eps;
-	fmingr(npar, dpar, df1, (void *)OS);
-	dpar[i] = dpar[i] - 2 * eps;
-	fmingr(npar, dpar, df2, (void *)OS);
-	for (j = 0; j < npar; j++)
+	   eps = OS->ndeps[i]/(OS->parscale[i]);
+     dpar[i] = dpar[i] + eps;
+	   fmingr_cc(npar, dpar, df1, (void *)OS);
+	   dpar[i] = dpar[i] - 2 * eps;
+	   fmingr_cc(npar, dpar, df2, (void *)OS);
+	   for (j = 0; j < npar; j++)
 	    REAL(ans)[i * npar + j] = (OS->fnscale) * (df1[j] - df2[j])/
 		(2 * eps * (OS->parscale[i]) * (OS->parscale[j]));
-	dpar[i] = dpar[i] + eps;
+	   dpar[i] = dpar[i] + eps;
     }
     // now symmetrize
     for (i = 0; i < npar; i++) 
-	for (j = 0; j < i; j++) {
+	   for (j = 0; j < i; j++) {
 	    double tmp =
 		0.5 * (REAL(ans)[i * npar + j] + REAL(ans)[j * npar + i]);
 	    REAL(ans)[i * npar + j] = REAL(ans)[j * npar + i] = tmp;
@@ -430,7 +456,11 @@ SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP rho)
 	setAttrib(ans, R_DimNamesSymbol, dm);
 	UNPROTECT(1);
     }
-    UNPROTECT(4);
+    UNPROTECT(1);
     return ans;
 }
-                     */
+                     
+                     
+                     
+                     
+                     

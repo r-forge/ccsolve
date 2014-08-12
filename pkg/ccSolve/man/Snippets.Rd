@@ -3,7 +3,6 @@
 \alias{tran1d}
 \alias{tran2d}
 \alias{tran2dmat}
-\alias{print.code}
 \title{
   Fortran code snippets that can be used when creating an inline model.
 }
@@ -66,7 +65,6 @@ tran2dmat (nx, ny, C, C_xup, C_xdown, C_yup, C_ydown,
 }
 
 \usage{
-print.code(x)
 data(tran1d)
 }
 \format{
@@ -78,7 +76,7 @@ data(tran1d)
   Karline Soetaert <karline.soetaert@nioz.nl>
 }
 \examples{
-print.code(tran1d)
+printCode(tran1d)
 }
 
 \references{

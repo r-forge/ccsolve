@@ -185,7 +185,7 @@ compile.dae <- function(res, rootfunc = NULL, eventfunc = NULL,
 
 # =============================================================================
 
-compile.pde <- function(dim, names, func, parms = NULL, forcings = NULL, outnames = NULL, 
+compile.pde <- function(func, dim, names, parms = NULL, forcings = NULL, outnames = NULL, 
   declaration = character(), includes = character(), language = "F95", ...) {
   nspec <- length(names)
   nb <- as.integer(prod(dim))

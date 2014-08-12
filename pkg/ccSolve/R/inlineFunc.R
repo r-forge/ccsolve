@@ -22,9 +22,11 @@ Cfunction <- function (sig = character(), body = character(), includes = charact
     otherdefs = character(), language = c("C++", "C", "Fortran", 
         "F95", "ObjectiveC", "ObjectiveC++"), verbose = FALSE, 
         dim = NULL, implicit = NULL, ## Karline: added
-    convention = c(".Call", ".C", ".Fortran"), Rcpp = FALSE, 
+    convention = c(".Call", ".C", ".Fortran"), #Rcpp = FALSE, 
     cppargs = character(), cxxargs = character(), libargs = character()) 
 {
+    Rcpp <- FALSE   # Will not use this
+
 # karline comment 4: to avoid using '.Call with cpp arguments if language is Fortran or F95 (or C???)
     if (missing (convention) & !missing(language))
       convention <- switch (EXPR = language, "Fortran" = ".Fortran", "F95" = ".Fortran", 
@@ -59,12 +61,12 @@ Cfunction <- function (sig = character(), body = character(), includes = charact
     }
 ## end karline
 
-    if (Rcpp) {
-        if (!require(Rcpp)) 
-            stop("Rcpp cannot be loaded, install it or use the default Rcpp=FALSE")
-        cxxargs <- c(Rcpp:::RcppCxxFlags(), cxxargs)
-        libargs <- c(Rcpp:::RcppLdFlags(), libargs)
-    }
+#    if (Rcpp) {
+#        if (!require(Rcpp)) 
+#            stop("Rcpp cannot be loaded, install it or use the default Rcpp=FALSE")
+#        cxxargs <- c(Rcpp:::RcppCxxFlags(), cxxargs)
+#        libargs <- c(Rcpp:::RcppLdFlags(), libargs)
+#    }
     if (length(cppargs) != 0) {
         args <- paste(cppargs, collapse = " ")
         if (verbose) 

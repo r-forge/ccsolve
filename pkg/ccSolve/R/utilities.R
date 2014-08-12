@@ -76,7 +76,7 @@ load.cc <- function(file) {
 # Print code snippits, CFunc objects or lists of RFunc objects
 # ---------------------------------------------------------------------------
 
-print.code <- function(x) {
+printCode <- function(x) {
   if (is.list(x))
     x <- x[[1]]@code
   else if (! is.character(x))

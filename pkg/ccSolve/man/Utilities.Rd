@@ -1,5 +1,5 @@
-\name{print.code}
-\alias{print.code}
+\name{printCode}
+\alias{printCode}
 \alias{save.cc}
 \alias{load.cc}
 \title{
@@ -7,7 +7,7 @@
 }
 
 \usage{
-print.code(x)
+printCode(x)
 save.cc(x, file)
 load.cc(file)
 }
@@ -36,12 +36,12 @@ load.cc(file)
 }
 \examples{
 # print a code snippit
-print.code(tran1d)
+printCode(tran1d)
 
 # generate a code and print it
 String <- " f(1) = 3*x(1) + x(2)*x(3)"
 rfun <- compile.root(String)
-print.code(rfun)
+printCode(rfun)
 
 \dontrun{
 

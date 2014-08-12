@@ -17,12 +17,15 @@
 \newcommand{\bvp}{\pkg{bvpSolve }\xspace}
 \newcommand{\ds}{\pkg{deSolve } \xspace}
 \newcommand{\rs}{\pkg{rootSolve }\xspace}
+ \title{
+Package \pkg{ccSolve}: solving numerical problems in compiled code.
+}
+\Plaintitle{Package ccSolve, solving numerical problems in compiled code}
 
-\title{Package ccSolve: solving differential equations, roots and minimization problems in compiled code}
-\Plaintitle{Package ccSolve, implementing numerical problems in compiled code}
-
-\Keywords{differential equations, root solving, minimization,
-  \proglang{R}}
+\Keywords{
+  differential equations, root solving, minimization,
+  \proglang{R}
+}
 
 \Plainkeywords{differential equations, root solving, minimization, R}
 
@@ -65,7 +68,9 @@ The package comprizes:
     \code{daspk} from \ds or \code{mebdfi} from \pkg{deTestSet}.
     \item function \code{compile.root} to compile root finding problems, from the 
     R-package \pkg{rootSolve}.
-    \item function \code{compile.nls} ??? to be decided...
+    \item function \code{compile.optim} to compile optimization problems. 
+     \pkg{ccSolve} also contains a function called \code{ccoptim} that extends 
+     the \code{optim} function to also support compiled code.
   \end{itemize}
 
 Most solver packages already include the facility to write problems in compiled code.
@@ -78,9 +83,11 @@ The new package \pkg{ccSolve} allows to define the problem in the R-code, and it
 takes care of the technical aspects the user has to go throught when 
 formulating the code as compiled problems.
 
-Depending on the problem itself, compiled functions amy be up to 50 times faster
-than R-functions. However, the compilation itself will easily take a few seconds - 
-this also needs to be taken into account when deciding whether the route to formulate
+Depending on the problem itself, compiled functions may be up to 50 times faster
+than R-functions, but in some cases the speed gain will be as small as a factor two. 
+One also needs to consider that the compilation itself will easily take a few seconds. 
+
+This needs to be taken into account when deciding whether the route to formulate
 a problem will go via R (easiest) or via a compiled language.
 }
 
@@ -94,7 +101,7 @@ a problem will go via R (easiest) or via a compiled language.
   E-mail: \email{karline.soetaert@nioz.nl}\\
   URL: \url{http://www.nioz.nl}\\
    \\
-  Katharine Mullen\\
+  Katharine Mullen 
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% R/Sweave specific LaTeX commands.
@@ -206,10 +213,10 @@ fun.f95 <- "
 "
 @
 The compiled function \code{cfun} contains the entire code that represents the problem;
-we can print it using \code{print.code}.
+we can print it using \code{printCode}.
 <<>>=
 cfun <- compile.root(fun.f95)
-print.code(cfun)
+printCode(cfun)
 @
 Note the function arguments, which are \code{n, t, x, f, rpar, ipar}
 \footnote{This means that none of these names can be used e.g. as a parameter or a variable name}.
@@ -232,7 +239,7 @@ jacfun.f95 <- "
   df (2, 2) = 2.d0 - 2.d0*x(2) + 3.d0*x(1)
 "
 cfun <- compile.root(func = fun.f95, jacfunc = jacfun.f95)
-print.code(cfun)
+printCode(cfun)
 multiroot(f = cfun, start = c(1, 1), jactype = "fullusr")
 @
 Subroutine jacfunc has as arguments: ( n, t, x, ml, mu, df, nrowpd, rpar, ipar ), and the user
@@ -269,7 +276,7 @@ in the function that is generated with \code{compile.root}.
 The vignette "compiledCode" \citep{compiledCode} from the \pkg{deSolve} package
 gives more information to how this works.
 <<>>=
-print.code(csixeq)
+printCode(csixeq)
 @
 
 \subsection{variable number of equations, with and without jacobian}
@@ -340,6 +347,40 @@ A <- multiroot.1D(f = cRosenbrock, start = runif(100000),  nspec = 1))
 The solution of this set of equations is 1 for all variables:.
 <<>>=
 head(A$root)
+@
+
+\section{optimization problems}
+Optimization problems are usually small problems, involving few equations and
+few iterations, so
+putting them in compiled code will not give large speed gains.
+
+Nevertheless, we extended the \code{optim} function so that it also supports 
+minimizing problems written in compiled code. 
+The new function is called \code{ccoptim} and takes the same arguments 
+as \code{optim}.
+
+<<>>=
+Nonlin.R <- function (x, ...) {
+  sum(-4*x[1:(n-1)]) + 3*(n-1) + sum((x[1:(n-1)]^2 + x[n]^2)^2)
+}  
+
+n <- 500
+ini <- runif( n)
+print(system.time(A <- optim (fn = Nonlin.R, par = ini, 
+  method = "CG", control = list(maxit = 1000))))
+
+Nonlin.f95 <- "
+  integer i
+  f = 0.d0
+  do i = 1, n-1
+     f = f - 4.d0*x(i) + 3.d0 + (x(i)*x(i) + x(n)*x(n))**2. 
+  enddo
+"
+  
+cNonlin <- compile.optim(Nonlin.f95)
+
+print(system.time(AA <- ccoptim (fn = cNonlin, par = ini, 
+  method = "CG", control = list(maxit = 1000))))
 @
 
 \section{initial value problems of differential equations}
@@ -618,7 +659,7 @@ Consequently, parameter names, state variable names and ordinary variable names
 The derivatives of the state variables are declared as "dOM, dO2, ...".
 The entire model code is:
 <<>>=
-print.code(cBiogeo)
+printCode(cBiogeo)
 @
 
 

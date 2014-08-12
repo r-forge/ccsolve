@@ -49,6 +49,8 @@
   }
   \item{declaration }{Text that enters the declaration section in each function.
   }
+  \item{includes }{Code that comes before the functions.
+  }
   \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C++", "C") defaults to "F95".
   }
   \item{...}{optional arguments to the generic function (not used).
