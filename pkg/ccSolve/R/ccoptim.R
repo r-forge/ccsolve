@@ -1,29 +1,21 @@
-#  File src/library/stats/R/optim.R
-#  Part of the R package, http://www.R-project.org
+# ------------------------------------------------------------------------------
 #
-#  Copyright (C) 2000-12 The R Core Team
+#  Adaptation to compiled code of the functions optim and optimize
 #
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
-#  (at your option) any later version.
+#  Copyright (C) optim and optimize 2000-12 The R Core Team
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+#  Adaptation for use with compiled code by Karline Soetaert
 #
-#  A copy of the GNU General Public License is available at
-#  http://www.r-project.org/Licenses/
+# ------------------------------------------------------------------------------
 
-isvalid <- function(f) {
+isvalid <- function(f) {        # check if a function points to compiled code
   is.character(f) | class(f) == "CFunc"
 }
 
 
 ccoptim <-
     function(par, fn, gr = NULL, ...,
-             method = c("Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN"), #, "Brent"), removed that for now...
+             method = c("Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN", "Brent"), 
              lower = -Inf, upper = Inf, 
              control = list(), hessian = FALSE, 
              dllname = NULL, rpar = NULL, ipar = NULL)
@@ -121,10 +113,13 @@ ccoptim <-
     res <- if(method == "Brent") { ## 1-D
         if(any(!is.finite(c(upper, lower))))
            stop("'lower' and 'upper' must be finite values")
-	res <- optimize(function(par) fn(par,...)/con$fnscale,
-                        lower = lower, upper = upper, tol = con$reltol)
+    # Karline: cannot work with fnscale
+    if (con$fnscale != 1)
+      stop("'Brent' method in compiled code only works with 'fnscale' = 1")
+               
+	res <- ccoptimize(fn, lower = lower, upper = upper, tol = con$reltol)
 	names(res)[names(res) == c("minimum", "objective")] <- c("par", "value")
-        res$value <- res$value * con$fnscale
+ #       res$value <- res$value * con$fnscale
 	c(res, list(counts = c(`function` = NA, gradient = NA),
                     convergence = 0L, message = NULL))
     } else .Call("call_optim", par, fn1, gr1, method, con, lower, 
@@ -134,3 +129,46 @@ ccoptim <-
           as.double(rpar), as.integer(ipar), PACKAGE = "ccSolve")
     res
 }
+
+# ------------------------------------------------------------------------------
+
+ccoptimize <- function(f, interval, ...,
+		     lower=min(interval), upper=max(interval),
+		     maximum=FALSE, tol=.Machine$double.eps^0.25, 
+         dllname = NULL, rpar = NULL, ipar = NULL)
+{
+  if (is.list(f)) { 
+    if (!is.null(dllname) & "dllname" %in% names(f))
+      stop("If 'f' is a list that contains dllname, argument 'dllname' should be NULL")
+
+    dllname <- f$dllname
+    f <- f$func
+  }
+
+  if (! isvalid(f))
+    stop("'f' should be either a compiled function or a character vector")
+  
+  if (class (f) == "CFunc")
+    f1 <- body(f)[[2]]
+  else if (is.loaded(f, PACKAGE = dllname, type = "") ||
+    is.loaded(f, PACKAGE = dllname, type = "Fortran"))  {
+      f1 <- getNativeSymbolInfo(f, PACKAGE = dllname)$address
+  } else 
+    stop(paste("'f' not loaded ", f))
+
+  if (is.null(rpar))
+    rpar <- 0.
+  if (is.null(ipar))
+    ipar <- 0  
+
+  val <- .Call("cc_do_fmin", f1, as.double(lower), as.double(upper), as.double(tol), 
+     as.integer(maximum), as.double(rpar), as.integer(ipar), PACKAGE = "ccSolve")
+
+  if (maximum)
+   	list(maximum = val[1], objective = val[2])
+  else
+  	list(minimum = val[1], objective = val[2])
+}
+
+##nice to the English (or rather the Scots)
+ccoptimise <- ccoptimize

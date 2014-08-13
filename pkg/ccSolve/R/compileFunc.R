@@ -66,7 +66,12 @@ create.init <- function (pars, pname, language, subname, parms, ...) {
     code <- paste("static double ", parms, "[",npar, "];\n", sep = "")
     defines <- paste("#define ", pnames, " ", 
       parms,"[", 0:(npar-1), "]\n ", sep = "", collapse = "")
-    code <- paste(code, defines, "void ", subname, 
+
+    code <- paste(code, defines, sep = "")
+    if (language == "C++")
+      code <- paste(code, "extern \"C\" void", subname, "(void(*));\n") 
+    
+    code <- paste(code, "void ", subname, 
       "(void (* ode",parms,")(int *, double *)){\n    int N =", npar, 
               ";\n    ode",parms,"(&N, ",parms,");\n}", sep = "")
     head <- ""          

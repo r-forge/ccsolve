@@ -55,7 +55,7 @@ typedef struct opt_struct
     SEXP names;	     /* names for par */
 } opt_struct, *OptStruct;
 
-/* compiled code version ; OS->R_fcall (misnomer) points to function address */
+/* compiled code version of original fminfn */
 static double fminfn_cc(int n, double *p, void *ex)
 {
     int i;
@@ -72,10 +72,10 @@ static double fminfn_cc(int n, double *p, void *ex)
 
 
     val = val/(OS->fnscale);
-//  	error("till here val %g %g %i", val, rpar[0], ipar[0]);	
     return val;
 }
 
+/* compiled code version of fmingr */
 static void fmingr_cc(int n, double *p, double *df, void *ex)
 {
   int i;
@@ -463,4 +463,195 @@ SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP Rpar, SEXP Ip
                      
                      
                      
+/*
+ This is an adaptation of parts of the file "optimize.c" of the R-core 
+ software.
+ It has been adapted to work with compiled code solutions 
+ by Karline Soetaert.
+*/
+
+
+struct callinfo {
+  SEXP R_fcall;
+  SEXP R_env;
+} ;
+
+/*static SEXP R_fcall1;
+  static SEXP R_env1; */
+
+int maximize;
+
+/* compiled code version of fcn1 for use with optimize NOTE: made simpler */
+static double cc_fcn1(double x, struct callinfo *info)
+{
+    double val;
+    int n = 1;
+
+	  if (!R_FINITE(x)) error("non-finite value supplied by optimize");
+
+    fcall(&n, &x, &val, rpar, ipar);    
+	  if (!R_FINITE(val)) {
+      error("non-finite value supplied by optimize");
+      return 0;
+    }
+    if (maximize) val = - val;
+    return val;
+}
+
                      
+                     
+/* unfortunately this function has to be copied */                     
+static
+double Brent_fmin(double ax, double bx, double (*f)(double, void *),
+		  void *info, double tol)
+{
+    /*  c is the squared inverse of the golden ratio */
+    const double c = (3. - sqrt(5.)) * .5;
+
+    /* Local variables */
+    double a, b, d, e, p, q, r, u, v, w, x;
+    double t2, fu, fv, fw, fx, xm, eps, tol1, tol3;
+
+/*  eps is approximately the square root of the relative machine precision. */
+    eps = DBL_EPSILON;
+    tol1 = eps + 1.;/* the smallest 1.000... > 1 */
+    eps = sqrt(eps);
+
+    a = ax;
+    b = bx;
+    v = a + c * (b - a);
+    w = v;
+    x = v;
+
+    d = 0.;/* -Wall */
+    e = 0.;
+    fx = (*f)(x, info);
+    fv = fx;
+    fw = fx;
+    tol3 = tol / 3.;
+
+/*  main loop starts here ----------------------------------- */
+
+    for(;;) {
+	xm = (a + b) * .5;
+	tol1 = eps * fabs(x) + tol3;
+	t2 = tol1 * 2.;
+
+	/* check stopping criterion */
+
+	if (fabs(x - xm) <= t2 - (b - a) * .5) break;
+	p = 0.;
+	q = 0.;
+	r = 0.;
+	if (fabs(e) > tol1) { /* fit parabola */
+
+	    r = (x - w) * (fx - fv);
+	    q = (x - v) * (fx - fw);
+	    p = (x - v) * q - (x - w) * r;
+	    q = (q - r) * 2.;
+	    if (q > 0.) p = -p; else q = -q;
+	    r = e;
+	    e = d;
+	}
+
+	if (fabs(p) >= fabs(q * .5 * r) ||
+	    p <= q * (a - x) || p >= q * (b - x)) { /* a golden-section step */
+
+	    if (x < xm) e = b - x; else e = a - x;
+	    d = c * e;
+	}
+	else { /* a parabolic-interpolation step */
+
+	    d = p / q;
+	    u = x + d;
+
+	    /* f must not be evaluated too close to ax or bx */
+
+	    if (u - a < t2 || b - u < t2) {
+		d = tol1;
+		if (x >= xm) d = -d;
+	    }
+	}
+
+	/* f must not be evaluated too close to x */
+
+	if (fabs(d) >= tol1)
+	    u = x + d;
+	else if (d > 0.)
+	    u = x + tol1;
+	else
+	    u = x - tol1;
+
+	fu = (*f)(u, info);
+
+	/*  update  a, b, v, w, and x */
+
+	if (fu <= fx) {
+	    if (u < x) b = x; else a = x;
+	    v = w;    w = x;   x = u;
+	    fv = fw; fw = fx; fx = fu;
+	} else {
+	    if (u < x) a = u; else b = u;
+	    if (fu <= fw || w == x) {
+		v = w; fv = fw;
+		w = u; fw = fu;
+	    } else if (fu <= fv || v == x || v == w) {
+		v = u; fv = fu;
+	    }
+	}
+    }
+    /* end of main loop */
+
+    return x;
+}
+
+/* fmin(f, xmin, xmax tol, maximum) */
+//cc_do_fmin", f, as.double(lower), as.double(upper), as.double(tol), as.integer(maximum))
+SEXP cc_do_fmin(SEXP f, SEXP Lower, SEXP Upper, SEXP Tol, SEXP maximum, SEXP Rpar, SEXP Ipar)
+{
+    double xmin, xmax, tol;
+    SEXP res;
+    double val, x;
+    int n = 1, i, np;
+    
+    struct callinfo info;
+
+    /* the function to be minimized */
+    if (!inherits(f, "NativeSymbol")) 
+       error("'f' is not a compiled function");
+    fcall = (C_func_type *) R_ExternalPtrAddr(f);  
+
+    np = LENGTH(Ipar);
+    ipar = (int *) R_alloc(np, sizeof(int));
+    for (i = 0; i < np; i++)
+      ipar[i] = INTEGER(Ipar)[i];
+
+    np = LENGTH(Rpar);
+    rpar = (double *) R_alloc(np, sizeof(double));
+    for (i = 0; i < np; i++)
+      rpar[i] = REAL(Rpar)[i];
+
+    /* xmin, xmax, tol */
+    xmin = REAL(Lower)[0];
+    if (!R_FINITE(xmin))
+  	  error("invalid '%s' value", "xmin");
+    xmax = REAL(Upper)[0];
+    if (!R_FINITE(xmax))
+	     error("invalid '%s' value", "xmax");
+    if (xmin >= xmax)
+	    error("'xmin' not less than 'xmax'");
+    tol = REAL(Tol)[0];
+    if (!R_FINITE(tol) || tol <= 0.0)
+      error("invalid '%s' value", "tol");
+
+    PROTECT(res = allocVector(REALSXP, 2));  /* karline: made 2 long; second = f-value*/
+    x = Brent_fmin(xmin, xmax,
+			      (double (*)(double, void*)) cc_fcn1, &info, tol);
+    REAL(res)[0] = x;   
+    fcall(&n, &x, &val, rpar, ipar);
+    REAL(res)[1] = val;   
+    UNPROTECT(1);    
+			      
+    return res;
+}
+

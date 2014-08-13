@@ -1,13 +1,18 @@
 \name{compile.optim}
 \alias{compile.optim}
 \alias{ccoptim}
+\alias{ccoptimise}
+\alias{ccoptimize}
 
 \title{Compiled code optimization  }
 \description{
   \code{compile.optim} uses inline compilation to generate compiled code 
   for optimization.
 
-  \code{ccoptim} provides a compiled code interface ot R's function optim.
+  \code{ccoptim}, \code{ccoptimize} and \code{ccoptimise} provides a compiled code 
+  interface ot R's function \link{optim} and \link{optimize}.
+  
+  
 }
 \usage{
  compile.optim (func, jacfunc = NULL,  
@@ -17,6 +22,12 @@
      "BFGS", "CG", "L-BFGS-B", "SANN"), lower = -Inf, upper = Inf,   
      control = list(), hessian = FALSE, dllname = NULL, rpar = NULL, 
      ipar = NULL) 
+
+ ccoptimize (f, interval, ...,
+		     lower=min(interval), upper=max(interval),
+		     maximum=FALSE, tol=.Machine$double.eps^0.25, 
+         dllname = NULL, rpar = NULL, ipar = NULL)
+
 }
 \arguments{
   \item{par }{Initial values for the parameters to be optimized over.

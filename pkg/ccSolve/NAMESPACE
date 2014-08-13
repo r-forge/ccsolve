@@ -3,7 +3,7 @@ useDynLib(ccSolve)
 import(deSolve)
 import(bvpSolve)
 export(compile.bvp, compile.ode, compile.dae, compile.pde, compile.root, 
-  compile.optim, printCode, load.cc, save.cc, ccoptim)
+  compile.optim, printCode, load.cc, save.cc, ccoptim, ccoptimise, ccoptimize)
 
 
 
