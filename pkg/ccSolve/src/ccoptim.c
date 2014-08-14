@@ -481,7 +481,7 @@ struct callinfo {
 
 int maximize;
 
-/* compiled code version of fcn1 for use with optimize NOTE: made simpler */
+/* compiled code version of fcn1 for use with optimize NOTE: somewhat simpler */
 static double cc_fcn1(double x, struct callinfo *info)
 {
     double val;
@@ -491,13 +491,29 @@ static double cc_fcn1(double x, struct callinfo *info)
 
     fcall(&n, &x, &val, rpar, ipar);    
 	  if (!R_FINITE(val)) {
-      error("non-finite value supplied by optimize");
-      return 0;
+      warning("NA/inf supplied by optimize, replaced by maximum positive value");
+      val = DBL_MAX;
     }
     if (maximize) val = - val;
     return val;
 }
 
+/* compiled code version of fcn1 for use with uniroot NOTE: somewhat simpler */
+static double cc_fcn2(double x, struct callinfo *info)
+{
+    double val;
+    int n = 1;
+
+	  if (!R_FINITE(x)) error("non-finite value supplied by uniroot");
+
+    fcall(&n, &x, &val, rpar, ipar);    
+	  if (!R_FINITE(val)) {
+      stop("NA/inf supplied by root - stopped");
+      return 0;
+    }
+    if (maximize) val = - val;
+    return val;
+}
                      
                      
 /* unfortunately this function has to be copied */                     
