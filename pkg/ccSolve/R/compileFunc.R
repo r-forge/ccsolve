@@ -14,8 +14,6 @@ create.initforc <- function (forc, language = "F95", fname = "xcbforc")
 # main initialiser function
 # -----------------------------------------------------------------------------
 
-# F95 and #Fortran allow to have dimensional parameters - not yet done for C
-
 create.init <- function (pars, pname, language, subname, parms, ...) {
 
   if (! class(pars) %in% c("numeric", "list", "character"))
@@ -65,13 +63,13 @@ create.init <- function (pars, pname, language, subname, parms, ...) {
     
     code <- paste("static double ", parms, "[",npar, "];\n", sep = "")
     defines <- paste("#define ", pnames, " ", 
-      parms,"[", 0:(npar-1), "]\n ", sep = "", collapse = "")
+      parms,"[", 0:(npar-1), "]\n", sep = "", collapse = "")
 
     code <- paste(code, defines, sep = "")
     if (language == "C++")
       code <- paste(code, "extern \"C\" void", subname, "(void(*));\n") 
     
-    code <- paste(code, "void ", subname, 
+    code <- paste(code, "\nvoid ", subname, 
       "(void (* ode",parms,")(int *, double *)){\n    int N =", npar, 
               ";\n    ode",parms,"(&N, ",parms,");\n}", sep = "")
     head <- ""          
@@ -86,7 +84,7 @@ create.init <- function (pars, pname, language, subname, parms, ...) {
 
     defines <- paste("\n", "double ", dimpnames , ";\n", sep = "", collapse = ", ")
 
-    code <- paste(code, defines, "void ", subname, 
+    code <- paste(code, defines, "\nvoid ", subname, 
       "(void (* ode",parms,")(int *, double *)){\n int i;\n    int N =", npar, 
               ";\n    ode",parms,"(&N, ",parms,");", sep = "")
     cdim <- unlist(lapply(pars, FUN = length))
@@ -119,7 +117,7 @@ create.init <- function (pars, pname, language, subname, parms, ...) {
 # =============================================================================
 
 compile.bvp <- function(func, jacfunc = NULL, bound = NULL, jacbound = NULL, 
-  parms = NULL, forcings = NULL, outnames = NULL, yini = NULL,
+  parms = NULL, yini = NULL, forcings = NULL, outnames = NULL, 
   declaration = character(), includes = character(), language = "F95", ...) {
 
   DD <- declare.ynames (yini, language, declaration)
@@ -135,7 +133,7 @@ compile.bvp <- function(func, jacfunc = NULL, bound = NULL, jacbound = NULL,
 # =============================================================================
 
 compile.ode <- function(func, jacfunc = NULL, rootfunc = NULL, eventfunc = NULL, 
-  parms = NULL, forcings = NULL, outnames = NULL, y = NULL,
+  parms = NULL, y = NULL, forcings = NULL, outnames = NULL, 
   declaration = character(), includes = character(), language = "F95", ...) {
 
   DD <- declare.ynames (y, language, declaration)
@@ -151,31 +149,77 @@ compile.ode <- function(func, jacfunc = NULL, rootfunc = NULL, eventfunc = NULL,
   out   
 }
 
+compile.steady <- function(func, jacfunc = NULL, rootfunc = NULL, eventfunc = NULL,
+      parms = NULL, y = NULL, forcings = NULL, outnames = NULL, 
+      declaration = character(), includes = character(), language = "F95", ...) {
+  out <- compile.ode(func, jacfunc, rootfunc, eventfunc,
+      parms, y, forcings, outnames, declaration, includes, language,...)
+  attr(out, "call") <- "compile.steady"
+
+  out   
+}  
+
 # =============================================================================
 
-compile.root <- function(func, jacfunc = NULL, parms = NULL, 
+compile.multiroot <- function(func, jacfunc = NULL, parms = NULL, x = NULL,
   declaration = character(), includes = character(), language = "F95", ...) {
+
+  DD <- declare.ynames (x, language, declaration, "x", FALSE)
+
   out <- compileDE(func = func, jacfunc = jacfunc, parms = parms, 
-     header = declaration, includes = includes, language = language, type = 4, ...)
-  attr(out, "call") <- "compile.root"
+     header = DD$header, header2 = DD$header2, includes = includes, 
+     language = language, type = 4, ...)
+  attr(out, "call") <- "compile.multiroot"
   out   
 }
 
 # =============================================================================
 
-compile.optim <- function(func, jacfunc = NULL,# parms = NULL, 
+compile.optim <- function(func, jacfunc = NULL, data = NULL, par = NULL, 
   declaration = character(), includes = character(), language = "F95", ...) {
-  out <- compileDE(func = func, jacfunc = jacfunc, parms = NULL, 
-     header = declaration, includes = includes, language = language, 
-     type = 3, ...)
+  if (is.null(data)) {
+    DD <- declare.ynames(par, language, declaration, "x", FALSE)
+    out <- compileDE(func = func, jacfunc = jacfunc, parms = NULL, 
+          header = DD$header, header2 = DD$header2, 
+          includes = includes, language = language, 
+          type = 3, ...)
+  } else {
+   DD <- declare.ynames(par, language, declaration, "x", FALSE)
+   if(any(mapply(data[1,], FUN = is.factor))) stop ("data should not contain factors")
+
+   dn <- declare.dnames (data, language, includes)
+       
+   out <- compileDE(func, Data = data, jacfunc = jacfunc,
+     header = DD$header, header2 = DD$header2, module = dn$module, 
+     includes = dn$includes, language = language, type = 3, ...)
+  }
   attr(out, "call") <- "compile.optim"
   out   
 }
 
 # =============================================================================
 
+compile.uniroot <- function(func,  
+  declaration = character(), includes = character(), language = "F95", ...) {
+  out <- compileDE(func = func, jacfunc = NULL, parms = NULL, 
+     header = declaration, includes = includes, language = language, 
+     type = 6, ...)
+  attr(out, "call") <- "compile.uniroot"
+  out   
+}
+
+compile.optimize <- compile.optimise <- function(func,  
+  declaration = character(), includes = character(), language = "F95", ...) {
+  out <- compileDE(func = func, jacfunc = NULL, parms = NULL, 
+     header = declaration, includes = includes, language = language, 
+     type = 6, ...)
+  attr(out, "call") <- "compile.optimize"
+  out   
+}
+# =============================================================================
+
 compile.dae <- function(res, rootfunc = NULL, eventfunc = NULL,  
-  parms = NULL, forcings = NULL, outnames = NULL, y = NULL,
+  parms = NULL,  y = NULL, forcings = NULL, outnames = NULL,
   declaration = character(), includes = character(), language = "F95", ...) {
   DD <- declare.ynames (y, language, declaration)
 
@@ -188,89 +232,22 @@ compile.dae <- function(res, rootfunc = NULL, eventfunc = NULL,
   out   
 }
 
-# =============================================================================
-
-compile.pde <- function(func, dim, names, parms = NULL, forcings = NULL, outnames = NULL, 
-  declaration = character(), includes = character(), language = "F95", ...) {
-  nspec <- length(names)
-  nb <- as.integer(prod(dim))
-  
-  dnames <- paste("d",names, sep="")
-  ndim <- length(dim)
-  if (ndim > 3 | ndim < 1)
-   stop("'dim' should be inbetween 1 and 3")
-   
-  n <- nspec * nb
-  lead <- ifelse (language == "Fortran", "        ","") # Karline: first 7 columns blank only required  
-  dims   <- paste(lead, "integer, parameter :: nb = ", nb,"\n", 
-            paste(lead, "integer, parameter :: ", 
-                         c("nx = ", "ny = ", "nz = ")[1:ndim] , 
-                         as.integer(dim), collapse = "\n", sep = ""))
-  D1     <- paste(lead, "double precision ", 
-  paste(paste(names,"(",paste(as.integer(dim), collapse = ","),")", sep = ""), collapse = ", "))
-  D2     <- paste(lead, "double precision ", 
-  paste(paste(dnames,"(",paste(as.integer(dim), collapse = ","),")", sep = ""), collapse = ", "))
-  head <- paste("\n", dims, "\n", D1, "\n", D2, "\n")
-  D2     <- paste(lead, "integer ::", paste(c("ix", "jx", "kx")[1:ndim], collapse = ","),", xxx","\n", declaration, "\n")
-  D2 <- paste(D2, lead, "if (n .NE. ", n, ") call rexit ('confusion over length of n')\n")
-  if (ndim == 1){
-    dol  <- paste(lead, "do ix = 1,nb\n ")
-      for (i in 1:nspec)
-        dol <- paste(dol,    
-                  lead, "  " , names[i],"(ix) = y(ix+",(i-1),"*nb)\n", collapse = "", sep = "")
-       dol <- paste(dol, 
-                  lead, "enddo\n")   
-  } else if (ndim == 2){
-     dol <- paste(lead, "xxx = 0\n", lead, "do ix = 1, nx\n",lead,
-       "  do jx = 1, ny\n",lead,"   xxx = xxx + 1\n")
-     for (i in 1:nspec)
-       dol <- paste(dol,    lead, "   " , names[i],"(ix, jx) = y(xxx + ", i-1, "*nb)\n", collapse = "", sep = "")
-       dol <- paste(dol, lead, " enddo\n", lead, "enddo\n")   
-  } else if (ndim == 3){
-     dol <- paste(lead, "xxx = 0\n",lead, "do ix = 1, nx\n",lead, "  do jx = 1, ny\n", lead, "    do kx = 1, nz\n", lead,"      xxx = xxx+1\n")
-       for (i in 1:nspec)
-         dol <- paste(dol, lead, "      " , names[i],"(ix, jx, kx) = y(xxx + ", i-1, "*nb)\n", collapse = "", sep = "")
-       dol <- paste(dol, lead, "    enddo\n", lead, "  enddo\n", lead, "enddo\n")   
-  }               
-  header <- paste(head, D2, dol, collapse = "")  
-  
-  if (ndim == 1){
-     dol <- paste("\n", lead,"do ix = 1,nb\n ")
-       for (i in 1:nspec)
-         dol <- paste(dol, lead, "  f(ix+",(i-1), "*nb) = ",dnames[i],"(ix)\n", collapse = "", sep = "")
-       dol <- paste(dol, lead, "enddo\n")   
-  } else if (ndim == 2){
-     dol <- paste("\n", lead, "xxx = 0\n", lead,"do ix = 1, nx\n", lead, "  do jx = 1, ny\n", lead, "    xxx = xxx + 1\n", sep = "")
-       for (i in 1:nspec)
-         dol <- paste(dol, lead, "    f(xxx + ", i-1, "*nb) = " , dnames[i],"(ix, jx) \n", collapse = "", sep = "")
-       dol <- paste(dol, lead, "  enddo\n",lead,"enddo\n")   
-  } else if (ndim == 3){
-     dol <- paste("\n",lead, "xxx = 0\n",lead,"do ix = 1, nx\n",lead,"  do jx = 1, ny\n",lead,"    do kx = 1, nz\n",lead, "      xxx = xxx+1\n", sep = "")
-       for (i in 1:nspec)
-         dol <- paste(dol, lead, "      f(xxx + ", i-1, "*nb) = " , dnames[i],"(ix, jx, kx) \n", collapse = "", sep = "")
-       dol <- paste(dol, lead, "    enddo\n", lead, "  enddo\n", lead, "enddo\n")   
-  }
-
-  out <- compileDE(func = func, parms = parms, forcings = forcings, 
-     outnames = outnames, header = header, tail = dol, 
-     includes = includes, language = language, ...)
-  attr(out, "call") <- "compile.pde"
-  out   
-}
 
 # =============================================================================
 
 compileDE <- function(func = NULL, jacfunc = NULL, bound = NULL, jacbound = NULL, 
   rootfunc = NULL, res = NULL, eventfunc = NULL,
-  parms = NULL, forcings = NULL, outnames = NULL, 
+  parms = NULL, forcings = NULL, Data = NULL, outnames = NULL, module = NULL,
   header = NULL, header2 = NULL, tail = NULL, language = "F95", includes = "", 
   type = 1, ...) {
 
   if (language %in% c("Fortran", "F95")) {
     convention <- ".Fortran"  
-  } else  {
+  } else if (language == "C") {
     convention <- ".C"  
-  }
+  } else
+    stop ("language", language, " not (yet) supported")
+
   if (! is.null(parms)) {
     F <- create.initfunc(parms, language )
     includes <- paste(includes, "\n", F$code)
@@ -357,7 +334,7 @@ compileDE <- function(func = NULL, jacfunc = NULL, bound = NULL, jacbound = NULL
     ii <- c(ii, 6)
   } else 
     F6 <- NULL
-
+  
   if (! is.null(F2) | ! is.null(F3) | ! is.null(F4) | ! is.null(F5) | ! is.null(F6)) {
     F$sig  <- list(F$sig, F2$sig, F3$sig, F4$sig, F5$sig, F6$sig)       [ii]
     F$body <- list(F$body, F2$body, F3$body, F4$body, F5$body, F6$body) [ii]
@@ -367,8 +344,8 @@ compileDE <- function(func = NULL, jacfunc = NULL, bound = NULL, jacbound = NULL
   names(F$sig) <- fnames   
  
   CF <- Cfunction(sig = F$sig, body = F$body,  dim = F$dim, implicit = "none", 
-    includes = includes, convention = convention, language = language, ...) 
-  if (! is.null(parms) | ! is.null(forcings)) {
+    includes = includes, convention = convention, language = language, module = module, ...) 
+  if (! is.null(parms) | ! is.null(forcings) | ! is.null(Data)) {
 #    DLL <- getDynLib(CF)   # THIS IF cfunction from inline can be used
     DLL <- dyn.load(attributes(CF)$DLL)
     
@@ -406,6 +383,23 @@ compileDE <- function(func = NULL, jacfunc = NULL, bound = NULL, jacbound = NULL
       }  
       CF <- c(CF, initfunc = res)
     } 
+    if (! is.null(Data)) {
+      res <- new("CFunc", code = includes)
+      fn <- function() NULL
+      body <- list()
+      body[[1]] <- ""
+      body[[2]] <- getNativeSymbolInfo("initdat", DLL)$address
+      body(fn) <- body 
+      res@.Data <- fn
+      remove(list = c("body", "fn"))
+      fnames <- c(fnames, "initfunc")           # this should occur at initialisation; there will be no initpar
+      if (class(CF) == "CFunc") {
+        CFL <- CF
+        CF <- new("CFuncList", list())
+        CF[[1]] <- CFL
+      }  
+      CF <- c(CF, initfunc = res)
+    }
   }
    if (class(CF) %in% c("list", "CFuncList") )
      names(CF) <- fnames 
@@ -446,6 +440,14 @@ create.func <- function (body, header, language, convention,
      sig <- signature(n = "integer", x = "numeric", 
        f = "numeric", rpar = "numeric", ipar = "integer")
     dim <- c("", "(*)", "", rep("(*)", 2))
+   } else if (type == 5) {                # nls
+     sig <- signature(n = "integer", ndat = "integer", x = "numeric", 
+       f = "numeric", rpar = "numeric", ipar = "integer")
+    dim <- c("", "", "(n)", "(ndat)", rep("(*)", 2))
+   } else if (type == 6) {                # uniroot
+     sig <- signature(x = "numeric", 
+       f = "numeric", rpar = "numeric", ipar = "integer")
+     dim <- c("", "", rep("(*)", 2))
    } else
      stop ("'type' not known")
   
@@ -493,17 +495,25 @@ create.jacfunc <- function(body, header, language, convention, type = 1) {
       x = "numeric", ml = "integer", mu = "integer", 
       df = "numeric", nrowpd = "integer", 
       rpar = "numeric", ipar = "integer")
-  else if (type == 3) { #min
+  else if (type == 5) {                # nls   n, ndat, ldfjac, x, df, rpar, ipar
+     sig <- signature(n = "integer", ndat = "integer", ldfjac = "integer",
+       x = "numeric", df = "numeric", rpar = "numeric", ipar = "integer")
+    dim <- c("", "", "", "(n)", "(n,ldfjac)", rep("(*)", 2))
+  } else if (type == 3) { #min
     sig <- signature(n = "integer", x = "numeric", df = "numeric", 
       rpar = "numeric", ipar = "integer")
     dim <- c("", "(*)", "(*)", "(*)", "(*)")
   }
   if (language == "Fortran") {
     head <- "\n        integer ix, jx\n"
-    if (type != 3){
+    if (type == 5) {
       head <- "\n        integer ix, jx\n"
       head <- paste("\n", header, head,
-            "\n        DO ix = 1, N\n          DO jx = 1, N\n            DF(ix,jx) = 0.D0\n          ENDDO\n        ENDDO\n\n")
+            "\n        DO ix = 1, n\n          DO jx = 1, ldfjac\n            dF(ix,jx) = 0.D0\n          ENDDO\n        ENDDO\n\n")
+    } else if (type != 3){
+      head <- "\n        integer ix, jx\n"
+      head <- paste("\n", header, head,
+            "\n        DO ix = 1, n\n          DO jx = 1, n\n            DF(ix,jx) = 0.D0\n          ENDDO\n        ENDDO\n\n")
     } else {
       head <- "\n        integer ix\n"
       head <- paste("\n", header, head,
@@ -511,7 +521,10 @@ create.jacfunc <- function(body, header, language, convention, type = 1) {
     }        
     body <- paste(head, body, "\n")
    } else if (language == "F95")  {   
-    if (type != 3) {
+    if (type == 5) {
+      head <- "\n integer ix, jx\n do ix = 1, n\n"
+      head <- paste("\n", header, head," do jx = 1, ldfjac\n df(ix,jx) = 0.d0\n enddo\n enddo\n")
+    } else if (type != 3) {
       head <- "\n integer ix, jx\n do ix = 1, n\n"
       head <- paste("\n", header, head," do jx = 1, n\n df(ix,jx) = 0.d0\n enddo\n enddo\n")
     } else {
@@ -520,7 +533,9 @@ create.jacfunc <- function(body, header, language, convention, type = 1) {
     }
     body <- paste(head, body, "\n")
   } else {
-    if (type != 3)
+    if (type == 5) 
+      head <- "\n int ix;\n for(ix = 0; ix < *n * *ldfjac; ix++)\n"
+    else if (type != 3)
       head <- "\n int ix;\n for(ix = 0; ix < *n * *n; ix++)\n"
     else
       head <- "\n int ix;\n for(ix = 0; ix < *n; ix++)\n"

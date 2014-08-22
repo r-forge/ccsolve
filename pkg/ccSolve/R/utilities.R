@@ -1,3 +1,12 @@
+getnames <- function (x) 
+  if(is.matrix(x)) return(colnames(x)) else return(names(x))
+
+isvalid <- function(f) {        # check if a function points to compiled code
+  is.character(f) | class(f) == "CFunc"
+}
+
+
+
 ## ============================================================================
 ## DLL functions
 ## ============================================================================
@@ -42,7 +51,8 @@ load.cc <- function(file) {
     stop ("'file' does not exist")
 
   CF <- get(load(file = file))
-  DLLname <- attributes(CF)$DLL
+  attrs <- attributes(CF)
+  DLLname <- attrs$DLL
     
   if (!file.exists(DLLname))
     stop ("'file' does not point to valid cc object: DLL ", DLLname, " does not exist")
@@ -147,7 +157,7 @@ create.ynamesc <- function (ynames) {
 
 # ---------------------------------------------------------------------------
 
-declare.ynames <- function(y, language, header) {
+declare.ynames <- function(y, language, header, label = "y", dy = TRUE) {
 
   tail <- character() 
   header2 <- character()
@@ -163,34 +173,40 @@ declare.ynames <- function(y, language, header) {
      dynames <- paste("d", ynames, sep="")
      header <- paste(header, 
          "\n        double precision ", paste(ynames, collapse = ", "))
-     header <- paste(header, 
+     if (dy) 
+       header <- paste(header, 
          "\n        double precision ", paste(dynames, collapse = ", "),"\n")
 
      dol <- "\n"
      for (i in 1:length(ynames))
        dol <- paste(dol,    
-           "        " , ynames[i]," = y(", i,")\n", collapse = "", sep = "")
+           "        " , ynames[i]," = ", label, "(", i,")\n", collapse = "", sep = "")
      header2 <- dol
   
-     tail <- "\n"
-     for (i in 1:length(dynames))
-       tail <- paste(tail,    
-           "        f(" , i,") = ",dynames[i],"\n", collapse = "", sep = "")
+     if (dy) {
+      tail <- "\n"
+      for (i in 1:length(dynames))
+        tail <- paste(tail,    
+            "        f(" , i,") = ",dynames[i],"\n", collapse = "", sep = "")
+     }       
   } else if (! is.null(ynames)){ # C
      dynames <- paste("d", ynames, sep="")
      header <- paste(header, "\n double ", paste(ynames, collapse = ", "),";\n")
-     header <- paste(header, "\n double ", paste(dynames, collapse = ", "),";\n")
+     if (dy)
+       header <- paste(header, "\n double ", paste(dynames, collapse = ", "),";\n")
 
      dol <- "\n"
      for (i in 1:length(ynames))
        dol <- paste(dol, 
-           "        " , ynames[i]," = y[", i-1,"];\n", collapse = "", sep = "")
+           "        " , ynames[i]," = ",label,"[", i-1,"];\n", collapse = "", sep = "")
      header2 <- dol
   
-     tail <- "\n"
-     for (i in 1:length(dynames))
-       tail <- paste(tail,    
+     if (dy) {
+      tail <- "\n"
+      for (i in 1:length(dynames))
+        tail <- paste(tail,    
            "        f[" , i-1,"] = ",dynames[i],";\n", collapse = "", sep = "")
+     }
   }
   list(header = header, header2 = header2, tail = tail)
 }

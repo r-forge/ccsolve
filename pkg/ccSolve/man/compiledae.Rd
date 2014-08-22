@@ -1,63 +1,80 @@
 \name{compile.dae}
 \alias{compile.dae}
 
-\title{Creates compiled code for the DAE functions written in implicit form }
+\title{Creates compiled code for solving differential algebraic equations written in implicit form }
 \description{
-  Uses inline compilation to generate compiled code from the body of 
-  fortran or C function that specify an initial value problem of
-  differential algebraic equations written in implicit form.
+  Generates compiled code from the body of 
+  fortran subroutines or C functions that specify an initial value problem of
+  differential algebraic equations (DAE) written in implicit form.
+  These problems can then be solved with function \link{daspk} from the R-package \code{deSolve} or \code{mebdfi} from the R-package \code{deTestSet}.
 }
 \usage{
  compile.dae (res, rootfunc = NULL, eventfunc = NULL,       
-      parms = NULL, forcings = NULL, outnames = NULL, y = NULL,
+      parms = NULL, y = NULL, forcings = NULL, outnames = NULL, 
       declaration = character(), includes = character(), 
       language = "F95", ...)
 }
 \arguments{
-  \item{res }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{res }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the residual function. 
     The function is called with arguments \code{t, y, dy, cj, r, ires, rpar, ipar} 
     and the calculated residuals should be written to vector \code{r}.
+    The variables n, t, y, dy and cj should not be changed in the code.
+    \code{rpar} and \code{ipar} are a double and integer vector, passed upon runtime
+    to the solver. See vignette \code{"compiledCode"} from R-package \code{deSolve}.
   }
   \item{rootfunc }{A character vector with F95, Fortran, C or C++ code, without 
-    declarations, that specifies the root function.
+    declarations, that specifies the root function. Only works with \code{daspk}.
     The function is called with arguments \code{n, t, y, nroot, root, rpar, ipar} and the 
     constraint function whose root is sought should be written to vector \code{root}.
+    The variables n, t, y and nroot should not be changed in the code.
   }
   \item{eventfunc }{A character vector with F95, Fortran, C or C++ code, without 
-    declarations, that specifies the event function.
+    declarations, that specifies the event function. Only works with \code{daspk}.
     The function is called with arguments \code{n, t, y} and the code needs to 
     redefine (elements) of vector \code{y}.
+    The variables n, and t should not be changed in the code.
   }
-  \item{parms }{The parameter vector or list to be used in the equations. 
-    Their names will be known in the functions, and their values passed 
-    upon solving the model. Parameter values should not be changed in the compiled code.
-    This vector or list should thus be compatible with the \code{parms} vector used in the call to the solver.
+  \item{parms }{The parameter vector or list, or a vector with parameter names, 
+    declaring the parameters to be used in the differential equations. 
+    Only the parameter names will be used and these names declared in the compiled code. 
+    The parameter values will be set at run time.
+    Parameter values should not be changed in the code.
+    The parameter vector or list should be compatible with the \code{parms} vector used in the call to the solver
+    (see e.g. \link{daspk}).
   }
-  \item{forcings }{The names of the forcings to be used in the equations. 
-    These names will be known in the functions, and their values updated for each \code{t} when solving the model.
-    This vector should thus be compatible with the \code{forcingss} vector used in the call to the solver.
+  \item{y }{The initial condition vector or a vector that contains the names of 
+    the state variables used in the equations. 
+    These names will be known in the compiled code. 
+    In addition the derivatives will be declared in the function, as follows: for a state varialbe called sv, 
+    then its corresponding derivative will be called dsv. 
+    The user must specify these derivatives in the code.
+    This vector should be compatible with the \code{y} vector used in the call to the solver 
+    (see e.g. \link{daspk}).
+  }   
+  \item{forcings }{A vector with the names of the forcings to be used in the equations. 
+    These names will be declared in the compiled code, 
+    and their values updated for each \code{t} when solving the model.
+    This vector should be compatible with the \code{forcings} vector used in the call to the solver 
+    (see e.g. \link{daspk}).
   }
   \item{outnames }{The names of the output variables used in the equations. 
-    These names will be known in the functions, and their values used to update the ouput.
-    This vector should thus be compatible with the \code{outnames} vector used in the call to the solver.
-  }
-  \item{y }{The initial condition vector or a vector that contains the names of the state variables used in the equations. 
-    These names will be known in the functions; also the derivatives will be declared in the function; if a state varialbe is called sv, 
-    then its corresponding derivative will be called dsv; the user must specify the derivative in the code.
-    This vector should be compatible with the \code{y} vector used in the call to the solver.
+    These names will be known in the compiled code, and the user needs to specify their values.
+    These values will then be used to update the ouput.
+    This vector should be compatible with the \code{outnames} vector used in the call to the solver
+    (see e.g. \link{daspk}).
   }
   \item{declaration }{Text that enters the declaration section in each function.
   }
   \item{includes }{Code that comes before the functions.
   }
-  \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C++", "C") defaults to "F95".
+  \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C"); defaults to "F95".
   }
   \item{...}{optional arguments to the generic function (not used).
   }
 }
 \value{
-  An object of class \code{CFunc} or \code{CFuncList}, as from the package  \code{inline}. 
+  An object of class \code{CFunc} or \code{CFuncList}, as defined in the package \code{inline}. 
   
   Each object of class \code{CFunc} can be called with the appropriate arguments
 }  
@@ -94,8 +111,7 @@ and \code{eventfunc} respectively.
 
 \note{
 
-Specifying the jacobian of the residual function cannot be done in inline 
-compiled code (this is because the number of equations is not known). 
+Specifying the jacobian of the residual function cannot be done in compiled code (this is because the number of equations is not known) and this value is not passed to the subroutines. 
 See however \code{vignette("compiledCode")} how to write this using regular text files.
 
 }
@@ -125,8 +141,7 @@ index <- c(1, 1, 0)
 print(system.time(out   <- daspk(times = times, res = resDAE, y = yini,
   dy = dyini, parms = NULL, nind = index)))
 
-# The same, in fortran
-
+# The same, in F95
 fresDAE <- " 
    r(1) = dy(1) - y(2)
    r(2) = y(1) - cos(t)
@@ -153,7 +168,7 @@ pars <- c(K     = K  ,
           prod  = 0.1)
 
 #---------------------------------------------------------
-# Chemical problem formulation as R-function
+# problem formulation as R-function
 #---------------------------------------------------------
 
 Chemres <- function (t, y, dy, pars){
@@ -182,7 +197,7 @@ print(system.time(
 ))
 
 # -------------------
-# Fortran
+# F95
 # -------------------
 DAE.f <- "
       ra  = ka* y(3)            ! forward rate
@@ -197,8 +212,10 @@ DAE.f <- "
 cDAE <- compile.dae(res = DAE.f,  parms = pars, outnames = "CONC",
   declaration = "DOUBLE PRECISION :: ra, rb")
 
+print(system.time(
 out <- daspk(y = y, dy = dy, times = times, res = cDAE, outnames = "CONC",
                nout = 1, parms = pars, atol = 1e-10, rtol = 1e-10)
+))
 
 ## =======================================================================
 ##  
@@ -210,7 +227,7 @@ out <- daspk(y = y, dy = dy, times = times, res = cDAE, outnames = "CONC",
 ## 0 = x^2 + y^2 - L^2
 ## =======================================================================
 
-# implementation in R - using (daspk!)
+# implementation in R - using daspk (!)
 pendulum <- function (t, y, dy, L) {
  list(c(-dy[1] + y[3]          ,
         -dy[2] + y[4]          ,
@@ -248,5 +265,17 @@ plot(out, outb, which = 1:4)
 \author{
   Karline Soetaert <karline.soetaert@nioz.nl>
 }
+\references{
+Karline Soetaert, Thomas Petzoldt, R. Woodrow Setzer (2010).  
+  Solving Differential Equations in R: Package deSolve. Journal of Statistical
+  Software, 33(9), 1--25.  URL http://www.jstatsoft.org/v33/i09/.
 
+Karline Soetaert, Thomas Petzoldt, R. Woodrow Setzer.
+  R Package deSolve, Writing Code in Compiled Languages.
+  package vignette.
+  
+Karline Soetaert, Jeff Cash and Francesca Mazzia (2014). 
+deTestSet: Testset for differential equations. R package version 1.1.1.
+  
+}
 \keyword{ utilities }

@@ -1,72 +1,94 @@
 \name{compile.ode}
 \alias{compile.ode}
+\alias{compile.steady}
 
-\title{Creates compiled code for the deSolve functions }
+\title{Creates compiled code for ordinary differential equation solvers }
 \description{
-  Uses inline compilation to generate compiled code from the body of 
-  fortran or C function that specify an initial value problem or ordinary
-  differential equations.
-}
+  Generates compiled code from the body of fortran subroutines or C functions 
+  that specify an initial value problem or ordinary differential equations (ODE).  
+  These problems can then be solved with differential equation functions from 
+  the R-packages \code{deSolve}, or \code{deTestSet} or to find the 
+  steady-state solution of ODEs as from the R-package \code{rootSolve}.
+}  
 \usage{
  compile.ode (func, jacfunc = NULL, rootfunc = NULL, eventfunc = NULL,
-      parms = NULL, forcings = NULL, outnames = NULL, y = NULL, 
+      parms = NULL, y = NULL, forcings = NULL, outnames = NULL, 
+      declaration = character(), includes = character(), language = "F95", ...)
+ compile.steady (func, jacfunc = NULL, rootfunc = NULL, eventfunc = NULL,
+      parms = NULL, y = NULL, forcings = NULL, outnames = NULL, 
       declaration = character(), includes = character(), language = "F95", ...)
 }
 \arguments{
-  \item{func }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{func }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the derivative function. 
     The function is called with arguments \code{n, t, y, f, rpar, ipar} and the 
-    derivative should be written to vector \code{f}.
-    The variables n (integer), t, and y (double) should not be changed in the code.
-    
+    derivatives should be written to vector \code{f}. 
+    (see note for difference equations).
+    The variables \code{n}, \code{t}, and \code{y} should not be changed in the code.
+    \code{rpar} and \code{ipar} are a double and integer vector, passed upon runtime
+    to the solver. See vignette \code{"compiledCode"} from R-package \code{deSolve}.
   }
-  \item{jacfunc }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{jacfunc }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the jacobian of the derivative function.
     The function is called with arguments \code{n, t, y, df, rpar, ipar} and the 
     jacobian should be written to matrix (language = Fortran, F95) or 
     vector (language = C) \code{df}.
+    The variables \code{n}, \code{t}, and \code{y} should not be changed in the code.
   }
-  \item{rootfunc }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{rootfunc }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the root function.
     The function is called with arguments \code{n, t, y, nroot, root, rpar, ipar} and the 
     constraint function whose root is sought should be written to vector \code{root}.
+    The variables n, t, y and nroot should not be changed in the code.
   }
-  \item{eventfunc }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{eventfunc }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the event function.
     The function is called with arguments \code{n, t, y} and the code needs to 
     redefine (elements) of vector \code{y}.
+    The variables n, and t should not be changed in the code.
   }
-  \item{parms }{The parameter vector or list to be used in the equations. 
-    Their names will be known in the functions, and their values passed 
-    upon solving the model. Parameter values should not be changed in the compiled code.
-    This vector or list should thus be compatible with the \code{parms} vector used in the call to the solver.
+  \item{parms }{The parameter vector or list, or a vector with parameter names, 
+    declaring the parameters to be used in the differential equations. 
+    Only the parameter names will be used and these names declared in the compiled code. 
+    The parameter values will be set at run time.
+    Parameter values should not be changed in the code.
+    The parameter vector or list should be compatible with the \code{parms} vector used in the call to the solver
+    (see e.g. \link{ode}).
   }
-  \item{forcings }{The names of the forcings to be used in the equations. 
-    These names will be known in the functions, and their values updated for each \code{t} when solving the model.
-    This vector should thus be compatible with the \code{forcingss} vector used in the call to the solver.
+  \item{y }{The initial condition vector or a vector that contains the names of 
+    the state variables used in the equations. 
+    These names will be known in the compiled code. 
+    In addition the derivatives will be declared in the function, as follows: for a state varialbe called sv, 
+    then its corresponding derivative will be called dsv. 
+    The user must specify these derivatives in the code.
+    This vector should be compatible with the \code{y} vector used in the call to the solver 
+    (see e.g. \link{ode}).
+  }  
+  \item{forcings }{A vector with the names of the forcings to be used in the equations. 
+    These names will be declared in the compiled code, 
+    and their values updated for each \code{t} when solving the model.
+    This vector should be compatible with the \code{forcings} vector used in the call to the solver 
+    (see e.g. \link{ode}).
   }
   \item{outnames }{The names of the output variables used in the equations. 
-    These names will be known in the functions, and their values used to update the ouput.
-    This vector should thus be compatible with the \code{outnames} vector used in the call to the solver.
-  }
-  \item{y }{The initial condition vector or a vector that contains the names of the state variables used in the equations. 
-    These names will be known in the functions; also the derivatives will be declared in the function; if a state varialbe is called sv, 
-    then its corresponding derivative will be called dsv; the user must specify the derivative in the code.
-    This vector should be compatible with the \code{y} vector used in the call to the solver.
+    These names will be known in the compiled code, and the user needs to specify their values.
+    These values will then be used to update the ouput.
+    This vector should be compatible with the \code{outnames} vector used in the call to the solver
+    (see e.g. \link{ode}).
   }
   \item{declaration }{Text that enters the declaration section in each function.
   }
-  \item{includes }{Code that comes before the functions.
+  \item{includes }{Code that comes before the functions (e.g. extra function or subroutine used, global variables (C) etc...
   }
-  \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C++", "C") defaults to "F95".
+  \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C"); defaults to "F95".
   }
-  \item{...}{optional arguments to the generic function (not used).
+  \item{...}{optional arguments to the function (not used).
   }
 }
 \value{
-  An object of class \code{CFunc} or \code{CFuncList}, as from the package  \code{inline}. 
+  An object of class \code{CFunc} or \code{CFuncList}, as defined in the package  \code{inline}. 
   
-  Each object of class \code{CFunc} can be called with the appropriate arguments
+  Each object of class \code{CFunc} can be called with the appropriate arguments.
 }  
 \details{
 
@@ -91,18 +113,23 @@ is defined by arguments \code{ipar} and \code{rpar} when calling the solver).
 \code{df} is a double precision matrix of dimension \code{n, n} that contains the jacobian.
 \code{root} is a double precision vector of length \code{n}.
 
-In case C or C++ are used all are pointers. 
+In case C is used all are pointers. 
 
 the values of \code{df} are set to 0 at the beginning of the subroutine.
 
-The variables n, t, and -except for eventfunc- y, should not be changed within the function; they are input only.
-The user needs to specify \code{f, df, root}, and \code{y} for \code{func, jacfunc, rootfunc} 
-and \code{eventfunc} respectively.
+The variables \code{n}, \code{t}, and -except for eventfunc- \code{y}, 
+should not be changed within the function; they are input only.
+The user needs to specify \code{f, df, root} for \code{func, jacfunc, rootfunc}, 
+and \code{y} for \code{eventfunc} respectively.
 
 }
 
 \note{
+Function \code{compile.steady} is a synonym for \code{compile.ode}.
 
+In case the model to be solved is a difference equation 
+(\code{ode(method = "iteration", ...)}), the new value of the state variables 
+should be put in \code{f}, not the derivative - see second example.
 
 }
 \examples{
@@ -131,17 +158,20 @@ chaos <- function(t, state, parameters) {
 }
 
 # ---------------------
-# The fortran version
-# ---------------------
+# The F95 version 
+# ---------------------                        
+# note 8.d0 assures double precision is used
 Chaos.f <- " 
    f(1) = -8.d0/3 * y(1) + y(2)*y(3)
    f(2) = -10.d0*(y(2)-y(3))
    f(3) = -y(1)*y(2) + 28.d0 * y(2) - y(3)
 "
 cChaos <- compile.ode(Chaos.f) 
+# Show the complete code
+printCode(cChaos$func)
 
 # ---------------------
-# + parameters, using C
+# + parameters, C code
 # ---------------------
 Chaos.C <- " 
    f[0] = a * y[0] + y[1]*y[2];
@@ -150,6 +180,7 @@ Chaos.C <- "
 "
 parms <- c(a = -8.0/3, b = -10.0, c = 28.0)
 cChaos2 <- compile.ode(Chaos.C, language = "C", parms = parms) 
+printCode(cChaos2$func)
 
 # ---------------------
 # running all  
@@ -192,8 +223,6 @@ parasite.R <- function (t, y, parms) {
 # ---------------------
 
 parasite.f <- "
-	      double precision P, H, fr
-
     	  P = y(1)
     	  H = y(2)
         fr = A * P / (ks + H)
@@ -201,7 +230,8 @@ parasite.f <- "
         f(1) = H * (1.d0 - exp(-fr))
         f(2) = H * exp (rH * (1.d0 - H) - fr)
 "
-cparasite <- compile.ode(func = parasite.f, parms = parms)
+cparasite <- compile.ode(func = parasite.f, parms = parms, 
+  declaration = "double precision P, H, fr")
 
 # ---------------------
 # C, using parms and y
@@ -223,15 +253,17 @@ cparasite.c <- compile.ode(func = parasite.C, parms = parms,
 # ---------------------
 system.time(out <- ode (func = parasite.R, y = yini, parms = parms, times = 0:500,
     method = "iteration"))
-    
 system.time(outc <- ode (func = cparasite, y = yini, parms = parms, times = 0:500,
      method = "iteration"))
-plot(out, outc)
+system.time(outc2 <- ode (func = cparasite.c, y = yini, parms = parms, times = 0:500,
+     method = "iteration"))
+
+plot(out, outc, outc2)
 
 ## ===========================================================================
 ##
-## ode with event in a function
-## derivative function: rate of change v1 = 0, v2 reduced at first-order rate
+## ex. 3. ode with event in a function
+## derivative function: dv1 = 0, dv2 = -0.5*v2 
 ## events: add 1 to v1, multiply v2 with 0.5
 ##
 ## ===========================================================================
@@ -243,13 +275,13 @@ derivs.R <- function(t, var, parms) {
 event.R <- function(t, y, parms){
   with (as.list(y),{
     v1 <- v1 + 1
-    v2 <- 5 * 0.5
+    v2 <- v2 * 0.5
     return(c(v1, v2))
   })
 }
 
 # ---------------------
-# compiled code 
+# f95 code 
 # ---------------------
 
 derivs.f <- " 
@@ -258,10 +290,20 @@ derivs.f <- "
 "
 event.f <- "
  y(1) = y(1) + 1.d0
- y(2) = 5 * 0.5d0
+ y(2) = y(2) * 0.5d0
 "
 
 cder <- compile.ode(func = derivs.f, eventfunc = event.f)
+
+# ---------------------
+# C code 
+# ---------------------
+
+derivs.c <- " f[0] = 0.; f[1] = -0.5 * y[1];"
+event.c <- " y[0] = y[0] + 1.; y[1] = y[1] * 0.5;"
+
+cder.c <- compile.ode(func = derivs.c, eventfunc = event.c, 
+  language = "C")
 
 # ---------------------
 # running
@@ -274,12 +316,14 @@ out <- ode(func = derivs.R, y = yini, times = times, parms = NULL,
            events = list(func = event.R, time = 1:9) )
 out2 <- ode(func = cder, y = yini, times = times, parms = NULL,
            events = list(time = 1:9) )
+out3 <- ode(func = cder.c, y = yini, times = times, parms = NULL,
+           events = list(time = 1:9) )
 
-plot(out, out2, type = "l")
+plot(out, out2, out3, type = "l")
 
 ## ===========================================================================
 ##
-## ODE with a root  + output variable
+## ex. 4. ODE with a root  + output variable
 ## Example from lsodar source code
 ##
 ## =======================================================================
@@ -300,10 +344,10 @@ rootFun.R <- function (t, y, parms) {
 }
 
 # ---------------------
-# Fortran
+# F95
 # ---------------------
 
-Fun.f<- "
+Fun.f <- "
   f(1) = -.04d0*y(1) + 1.d4*y(2)*y(3)
   f(3) = 3.d7*y(2)*y(2)
   f(2) = -f(1) - f(3)
@@ -337,7 +381,7 @@ print(paste("root is found at t", attributes(out)$troot))
 
 ## ===========================================================================
 ##
-## ode with a root function and event
+## ex 5. ode with a root function and an event
 ## the bouncing ball
 ## event triggered when the ball hits the ground (height = 0)
 ## bouncing means a change in spped direction and loss in speed
@@ -363,11 +407,11 @@ event.R <- function(t, y, parms) {
 }
 
 # ---------------------
-# in fortran
+# in F95
 # ---------------------
 ballode.f <- "
  f(1) = y(2)
- f(2) = -9.8
+ f(2) = -9.8d0
 "
 
 root.f  <-  " 
@@ -376,7 +420,7 @@ root.f  <-  "
 
 event.f <- "
  y(1) = 0.d0
- y(2) = -0.9 * y(2)
+ y(2) = -0.9d0 * y(2)
 "
 cballode <- compile.ode(func = ballode.f, rootfunc = root.f, eventfunc = event.f)
 
@@ -387,10 +431,15 @@ cballode <- compile.ode(func = ballode.f, rootfunc = root.f, eventfunc = event.f
 yini  <- c(height = 0, v = 20)
 times <- seq(0, 40, 0.01)
 
-out   <- lsodar(times = times, y = yini, func = ballode.R, parms = NULL,
-  events = list(func = event.R, root = TRUE), rootfun = root.R)
-out2  <- lsodar(times = times, y = yini, func = cballode, parms = NULL,
-  events = list(root = TRUE), nroot = 1) 
+print(system.time(
+  out   <- lsodar(times = times, y = yini, func = ballode.R, parms = NULL,
+    events = list(func = event.R, root = TRUE), rootfun = root.R)
+))
+    
+print(system.time(
+  out2  <- lsodar(times = times, y = yini, func = cballode, parms = NULL,
+    events = list(root = TRUE), nroot = 1) 
+))
 
 attributes(out)$troot
 attributes(out2)$troot
@@ -398,6 +447,7 @@ attributes(out2)$troot
 #-----------------------------
 # display, plot results
 #-----------------------------
+
 plot(out, out2, which = "height", type = "l", lwd = 2, 
   main = "bouncing ball", ylab = "height")
 
@@ -406,7 +456,7 @@ plot(out, out2, which = "height", type = "l", lwd = 2,
 ## An ode with a forcing function
 ## the SCOC model
 ##
-## =============================================================================
+## =========================================================================== 
 
 # ---------------------
 # Forcing function data
@@ -448,11 +498,11 @@ cSed <- compile.ode(func = sediment.f, forcings = "Depo",
   parms = parms, outnames = outnames)
 
 # ---------------------
-# and in FC
+# and in C
 # ---------------------
 sediment.c <- "
   f[0] = Depo - k*y[0];
-  Flux = Depo ;
+  Flux = Depo;
   Min = k*y[0];
 "
 outnames <- c("Flux", "Min")
@@ -465,17 +515,85 @@ cSed2 <- compile.ode(func = sediment.c, forcings = "Depo",
 # ---------------------
 
 times <- 1:365
-Out  <- ode(times = times, func = sediment.R, y = c(O2 = 63), parms = parms)
-Out2 <- ode(times = times, func = cSed, y = c(O2 = 63), 
-  outnames = outnames, nout = 2, parms = parms, forcings = Flux)
-Out3 <- ode(times = times, func = cSed2, y = c(O2 = 63), 
-  outnames = outnames, nout = 2, parms = parms, forcings = Flux)
+print(system.time(
+  Out  <- ode(times = times, func = sediment.R, y = c(O2 = 63), 
+    parms = parms)
+))
+print(system.time(
+  Out2 <- ode(times = times, func = cSed, y = c(O2 = 63), 
+   outnames = outnames, nout = 2, parms = parms, forcings = Flux)
+))
+print(system.time(
+  Out3 <- ode(times = times, func = cSed2, y = c(O2 = 63), 
+    outnames = outnames, nout = 2, parms = parms, forcings = Flux)
+))
+plot(Out, Out2, Out3)
 
-plot(Out, Out2)
+## =======================================================================
+##
+##  Steady-state application (from example(steady))
+##  Bacteria (Bac) growing on a substrate (Sub)
+##  Example from Soetaert and Herman (2009)
+##
+## =======================================================================
+
+# R-function  
+model <- function(t, state, pars) {
+  with (as.list(c(state,pars)), {
+  #       substrate uptake             death  respiration
+  dBact = gmax*eff*Sub/(Sub+ks)*Bact - dB*Bact - rB*Bact
+  dSub  =-gmax    *Sub/(Sub+ks)*Bact + dB*Bact          +input
+  
+  return(list(c(dBact, dSub)))
+ })
+}
+ 
+pars <- list(gmax = 0.5,eff = 0.5,
+             ks = 0.5, rB = 0.01, dB = 0.01, input = 0.1)
+yini <- c(Bact = 0.1, Sub = 0)
+
+# C version
+model.C <- "
+  dBact = gmax*eff*Sub/(Sub+ks)*Bact - dB*Bact - rB*Bact;
+  dSub  =-gmax    *Sub/(Sub+ks)*Bact + dB*Bact          +input;
+"
+cmodel <- compile.steady( func = model.C, parms = pars, 
+  y = yini, language = "C")
+
+# Newton-Raphson
+steady(y = yini, time = 0,
+       func = model, parms = pars, pos = TRUE)  
+steady(y = yini, time = 0,
+       func = cmodel, parms = pars, pos = TRUE)  
+
+# Dynamic run to steady-state
+steady(y = c(Bact = 0.1, Sub = 0), time = c(0, 1e5),
+             func = cmodel, parms = pars, method = "runsteady")
 }
 }
+
 \author{
   Karline Soetaert <karline.soetaert@nioz.nl>
+}
+\references{
+Karline Soetaert, Thomas Petzoldt, R. Woodrow Setzer (2010).  
+  Solving Differential Equations in R: Package deSolve. Journal of Statistical
+  Software, 33(9), 1--25.  URL http://www.jstatsoft.org/v33/i09/.
+  
+Karline Soetaert, Thomas Petzoldt, R. Woodrow Setzer.
+  R Package deSolve, Writing Code in Compiled Languages.
+  package vignette.
+
+Karline Soetaert and Peter.M.J. Herman (2009).  
+A Practical Guide to Ecological Modelling. Using R as a Simulation Platform.  
+Springer, 372 pp.
+
+Karline Soetaert (2014). rootSolve: Nonlinear root finding, equilibrium and 
+steady-state analysis of ordinary differential equations.  R-package
+  version 1.7
+
+Karline Soetaert, Jeff Cash and Francesca Mazzia (2014). 
+deTestSet: Testset for differential equations. R package version 1.1.1.
 }
 
 \keyword{ utilities }

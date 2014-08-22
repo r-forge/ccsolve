@@ -1,27 +1,50 @@
 /*
- This is an adaptation of the file "optim.c" that is part of the R-core 
- software.
- It has been adapted to work with compiled code solutions 
- bu Karline Soetaert.
+ This is an adaptation of the file "optim.c", optimize.c and "zeroin.c" that is 
+ part of the R-core software.
 
+ It has been adapted to work with problems working in compiled code
+ by Karline Soetaert.
+  
  .. removed underscore in error(_(
  .. changed .External2 calls to .Call
-*/
+
+* original header of optim.c (and same for the other files):
+ *
+ *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1999-2013  The R Core Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, a copy is available at
+ *  http://www.r-project.org/Licenses/
+ */
+
 
 #include <R.h>
 #include <Rdefines.h>
 #include "ccSolve.h"
 
+#define EPSILON DBL_EPSILON
 
 /* global variables */
 C_func_type *fcall = NULL;
+C_func_type2 *fcall2 = NULL;
 C_jac_type *gcall = NULL;
 
 double* parcopy;
 double* grads;
 int hasgn; 
-double* rpar;
-int* ipar; 
+double *rpar, *data;
+int *ipar, nrowdat, ncoldat; 
 
 SEXP getListElement(SEXP list, char *str)
 {
@@ -151,8 +174,8 @@ static void fmingr_cc(int n, double *p, double *df, void *ex)
 
 
 /* par fn gr method options upper, lower*/                              
-SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options, 
-                SEXP slower, SEXP supper, SEXP Rpar, SEXP Ipar)
+SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP initfunc, SEXP method, SEXP options, 
+                SEXP slower, SEXP supper, SEXP Ndat, SEXP Ncol, SEXP Dat, SEXP Rpar, SEXP Ipar)
 {
     SEXP tmp;
     SEXP res, value, counts, conv;
@@ -160,6 +183,7 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
     int ifail = 0;
     double *dpar, *opar, val = 0.0, abstol, reltol, temp;
     const char *tn;
+    C_init_dat_type *initializer;
 
     OptStruct OS;
 
@@ -182,6 +206,21 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP method, SEXP options,
        error("'fn' is not a compiled function");
     fcall = (C_func_type *) R_ExternalPtrAddr(fn);  
 
+    if (! isNull(initfunc)) {   /* data are passed with initfunc to inialise them*/
+      if (!inherits(initfunc, "NativeSymbol")) 
+        error("'initfunc' is not a compiled function");
+      nrowdat = INTEGER(Ndat)[0];
+      ncoldat = INTEGER(Ncol)[0];
+      np = LENGTH (Dat);  
+      data = (double *) R_alloc(np, sizeof(double));
+      for (i = 0; i < np; i++)
+       data[i] = REAL(Dat)[i];    
+    
+
+/* initialiser function for data*/
+      initializer = (C_init_dat_type *) R_ExternalPtrAddr(initfunc);
+      initializer(&Initstdat, &nrowdat);
+    }
     if (!isString(method)|| LENGTH(method) != 1)
   	  error("invalid '%s' argument", "method");
     tn = CHAR(STRING_ELT(method, 0));
@@ -464,7 +503,7 @@ SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP Rpar, SEXP Ip
                      
                      
 /*
- This is an adaptation of parts of the file "optimize.c" of the R-core 
+ This is an adaptation of parts of the file "optimize.c" of the R
  software.
  It has been adapted to work with compiled code solutions 
  by Karline Soetaert.
@@ -485,11 +524,10 @@ int maximize;
 static double cc_fcn1(double x, struct callinfo *info)
 {
     double val;
-    int n = 1;
 
 	  if (!R_FINITE(x)) error("non-finite value supplied by optimize");
 
-    fcall(&n, &x, &val, rpar, ipar);    
+    fcall2(&x, &val, rpar, ipar);    
 	  if (!R_FINITE(val)) {
       warning("NA/inf supplied by optimize, replaced by maximum positive value");
       val = DBL_MAX;
@@ -502,13 +540,12 @@ static double cc_fcn1(double x, struct callinfo *info)
 static double cc_fcn2(double x, struct callinfo *info)
 {
     double val;
-    int n = 1;
 
 	  if (!R_FINITE(x)) error("non-finite value supplied by uniroot");
 
-    fcall(&n, &x, &val, rpar, ipar);    
+    fcall2(&x, &val, rpar, ipar);    
 	  if (!R_FINITE(val)) {
-      stop("NA/inf supplied by root - stopped");
+      error("NA/inf supplied by root - stopped");
       return 0;
     }
     if (maximize) val = - val;
@@ -628,14 +665,14 @@ SEXP cc_do_fmin(SEXP f, SEXP Lower, SEXP Upper, SEXP Tol, SEXP maximum, SEXP Rpa
     double xmin, xmax, tol;
     SEXP res;
     double val, x;
-    int n = 1, i, np;
+    int i, np;
     
     struct callinfo info;
 
     /* the function to be minimized */
     if (!inherits(f, "NativeSymbol")) 
        error("'f' is not a compiled function");
-    fcall = (C_func_type *) R_ExternalPtrAddr(f);  
+    fcall2 = (C_func_type2 *) R_ExternalPtrAddr(f);  
 
     np = LENGTH(Ipar);
     ipar = (int *) R_alloc(np, sizeof(int));
@@ -664,10 +701,189 @@ SEXP cc_do_fmin(SEXP f, SEXP Lower, SEXP Upper, SEXP Tol, SEXP maximum, SEXP Rpa
     x = Brent_fmin(xmin, xmax,
 			      (double (*)(double, void*)) cc_fcn1, &info, tol);
     REAL(res)[0] = x;   
-    fcall(&n, &x, &val, rpar, ipar);
+    fcall2(&x, &val, rpar, ipar);
     REAL(res)[1] = val;   
     UNPROTECT(1);    
 			      
     return res;
 }
 
+
+
+// One Dimensional Root Finding --  just wrapper code for
+// Brent's "zeroin"
+// ---------------
+
+
+
+
+/* zeroin2(f, ax, bx, f.ax, f.bx, tol, maxiter) */
+SEXP cc_zeroin(SEXP f, SEXP ax, SEXP bx, SEXP Tol, SEXP maxiter, SEXP Rpar, SEXP Ipar)
+{
+    double f_ax, f_bx, val;
+    double xmin, xmax, tol;
+    int i, iter, np;
+    SEXP res;
+    struct callinfo info;
+
+    /* the function to be minimized */
+    if (!inherits(f, "NativeSymbol")) 
+       error("'f' is not a compiled function");
+    fcall2 = (C_func_type2 *) R_ExternalPtrAddr(f);  
+           /* xmin, xmax */
+    xmin = REAL(ax)[0];
+    if (!R_FINITE(xmin)) error("invalid '%s' value", "xmin");
+    xmax = REAL(bx)[0];
+    if (!R_FINITE(xmax)) error("invalid '%s' value", "xmax");
+    if (xmin >= xmax) error("'xmin' not less than 'xmax'");
+
+    np = LENGTH(Ipar);
+    ipar = (int *) R_alloc(np, sizeof(int));
+    for (i = 0; i < np; i++)
+      ipar[i] = INTEGER(Ipar)[i];
+
+    np = LENGTH(Rpar);
+    rpar = (double *) R_alloc(np, sizeof(double));
+    for (i = 0; i < np; i++)
+      rpar[i] = REAL(Rpar)[i];
+
+    /* tol */
+    tol = REAL(Tol)[0];
+    if (!R_FINITE(tol) || tol <= 0.0) error("invalid '%s' value", "tol");
+    /* maxiter */
+    iter = INTEGER(maxiter)[0];
+    if (iter <= 0) error("'maxiter' must be positive");
+//    error("till here");
+
+    /* f(ax) = f(xmin) *; f(bx) = f(xmax) */
+    fcall2(&xmin, &f_ax, rpar, ipar);    
+    fcall2(&xmax, &f_bx, rpar, ipar);    
+    if (ISNA(f_ax)) error("NA value for '%s' is not allowed", "f.lower");
+    if (ISNA(f_bx)) error("NA value for '%s' is not allowed", "f.upper");
+
+    PROTECT(res = allocVector(REALSXP, 4));  /* one added for f()*/
+	  val = R_zeroin2(xmin, xmax, f_ax, f_bx, (double (*)(double, void*)) cc_fcn2,
+		 (void *) &info, &tol, &iter);
+    REAL(res)[0] = val;
+    REAL(res)[1] = (double)iter;
+    REAL(res)[2] = tol;
+    fcall2(&val, &f_ax, rpar, ipar);    
+    REAL(res)[3] = f_ax;
+
+    UNPROTECT(1);
+    return res;
+}
+
+
+
+
+/* copy from R file zeroin.c */
+/* R_zeroin2() is faster for "expensive" f(), in those typical cases where
+ *             f(ax) and f(bx) are available anyway : */
+
+double R_zeroin2(			/* An estimate of the root */
+    double ax,				/* Left border | of the range	*/
+    double bx,				/* Right border| the root is seeked*/
+    double fa, double fb,		/* f(a), f(b) */
+    double (*f)(double x, void *info),	/* Function under investigation	*/
+    void *info,				/* Add'l info passed on to f	*/
+    double *Tol,			/* Acceptable tolerance		*/
+    int *Maxit)				/* Max # of iterations */
+{
+    double a,b,c, fc;			/* Abscissae, descr. see above,  f(c) */
+    double tol;
+    int maxit;
+
+    a = ax;  b = bx;
+    c = a;   fc = fa;
+    maxit = *Maxit + 1; tol = * Tol;
+
+    /* First test if we have found a root at an endpoint */
+    if(fa == 0.0) {
+	*Tol = 0.0;
+	*Maxit = 0;
+	return a;
+    }
+    if(fb ==  0.0) {
+	*Tol = 0.0;
+	*Maxit = 0;
+	return b;
+    }
+
+    while(maxit--)		/* Main iteration loop	*/
+    {
+	double prev_step = b-a;		/* Distance from the last but one
+					   to the last approximation	*/
+	double tol_act;			/* Actual tolerance		*/
+	double p;			/* Interpolation step is calcu- */
+	double q;			/* lated in the form p/q; divi-
+					 * sion operations is delayed
+					 * until the last moment	*/
+	double new_step;		/* Step at this iteration	*/
+
+	if( fabs(fc) < fabs(fb) )
+	{				/* Swap data for b to be the	*/
+	    a = b;  b = c;  c = a;	/* best approximation		*/
+	    fa=fb;  fb=fc;  fc=fa;
+	}
+	tol_act = 2*EPSILON*fabs(b) + tol/2;
+	new_step = (c-b)/2;
+
+	if( fabs(new_step) <= tol_act || fb == (double)0 )
+	{
+	    *Maxit -= maxit;
+	    *Tol = fabs(c-b);
+	    return b;			/* Acceptable approx. is found	*/
+	}
+
+	/* Decide if the interpolation can be tried	*/
+	if( fabs(prev_step) >= tol_act	/* If prev_step was large enough*/
+	    && fabs(fa) > fabs(fb) ) {	/* and was in true direction,
+					 * Interpolation may be tried	*/
+	    register double t1,cb,t2;
+	    cb = c-b;
+	    if( a==c ) {		/* If we have only two distinct	*/
+					/* points linear interpolation	*/
+		t1 = fb/fa;		/* can only be applied		*/
+		p = cb*t1;
+		q = 1.0 - t1;
+	    }
+	    else {			/* Quadric inverse interpolation*/
+
+		q = fa/fc;  t1 = fb/fc;	 t2 = fb/fa;
+		p = t2 * ( cb*q*(q-t1) - (b-a)*(t1-1.0) );
+		q = (q-1.0) * (t1-1.0) * (t2-1.0);
+	    }
+	    if( p>(double)0 )		/* p was calculated with the */
+		q = -q;			/* opposite sign; make p positive */
+	    else			/* and assign possible minus to	*/
+		p = -p;			/* q				*/
+
+	    if( p < (0.75*cb*q-fabs(tol_act*q)/2) /* If b+p/q falls in [b,c]*/
+		&& p < fabs(prev_step*q/2) )	/* and isn't too large	*/
+		new_step = p/q;			/* it is accepted
+						 * If p/q is too large then the
+						 * bisection procedure can
+						 * reduce [b,c] range to more
+						 * extent */
+	}
+
+	if( fabs(new_step) < tol_act) {	/* Adjust the step to be not less*/
+	    if( new_step > (double)0 )	/* than tolerance		*/
+		new_step = tol_act;
+	    else
+		new_step = -tol_act;
+	}
+	a = b;	fa = fb;			/* Save the previous approx. */
+	b += new_step;	fb = (*f)(b, info);	/* Do step to a new approxim. */
+	if( (fb > 0 && fc > 0) || (fb < 0 && fc < 0) ) {
+	    /* Adjust c for it to have a sign opposite to that of b */
+	    c = a;  fc = fa;
+	}
+
+    }
+    /* failed! */
+    *Tol = fabs(c-b);
+    *Maxit = -1;
+    return b;
+}

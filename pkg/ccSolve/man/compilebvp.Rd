@@ -1,70 +1,87 @@
 \name{compile.bvp}
 \alias{compile.bvp}
 
-\title{Creates compiled code for the bvpSolve functions }
+\title{Creates compiled code for boundary value differential equations}
 \description{
-  Uses inline compilation to generate compiled code from the body of 
-  fortran or C function that specify a boundary value problem.
+  Generates compiled code from the body of fortran subroutines
+  or C function that specify a boundary value problem (BVP).
+  These problems can then be solved with solvers from the R-package \code{bvpSolve}.
 }
 \usage{
- compile.bvp    (func, jacfunc = NULL, bound = NULL, jacbound = NULL, 
-      parms = NULL, forcings = NULL, outnames = NULL, yini = NULL,
+ compile.bvp (func, jacfunc = NULL, bound = NULL, jacbound = NULL, 
+      parms = NULL, yini = NULL, forcings = NULL, outnames = NULL, 
       declaration = character(), includes = character(), language = "F95", ...)
 }
 \arguments{
-  \item{func }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{func }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the derivative function. 
     The function is called with arguments \code{n, x, y, f, rpar, ipar} and the 
-    derivative should be written to vector \code{f}. 
-    The variables n (integer), x, and y (double) should not be changed in the code.
+    derivatives should be written to vector \code{f}. 
+    The variables n, x, and y should not be changed in the code.
+    \code{rpar} and \code{ipar} are a double and integer vector, passed upon runtime
+    to the solver. See vignette \code{"compiledCode"} from R-package \code{deSolve}.
   }
-  \item{jacfunc }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{jacfunc }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the jacobian of the derivative function.
     The function is called with arguments \code{n, x, y, df, rpar, ipar} and the 
     jacobian should be written to the matrix (language = Fortran) or 
     vector (language C) \code{df}.
+    The variables n, x, and y should not be changed in the code.
   }
-  \item{bound }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{bound }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the boundary function.
     The function is called with arguments \code{i, n, y, g, rpar, ipar} and the 
     result should be written to value \code{g}.
+    The variables i, n, and y should not be changed in the code.
+    
   }
-  \item{jacbound }{A character vector with F95, Fortran, C or C++ code, without 
+  \item{jacbound }{A character vector with F95, Fortran, or C code, without 
     declarations, that specifies the jacobian of the boundary function.
     The function is called with arguments \code{i, n, y, dg, rpar, ipar} and the 
     result should be written to vector \code{dg}.
+    The variables i, n, and y should not be changed in the code.
+    
   }
-  \item{parms }{The parameter vector or list to be used in the equations. 
-    Their names will be known in the functions, and their values passed 
-    upon solving the model. Parameter values should not be changed in the compiled code.
-    This vector or list should thus be compatible with the \code{parms} vector used in the call to the solver.
+  \item{parms }{The parameter vector or list, or a vector with parameter names, 
+    declaring the parameters to be used in the differential equations. 
+    Only the parameter names will be used and these names declared in the compiled code. 
+    The parameter values will be set at run time.
+    Parameter values should not be changed in the code.
+    The parameter vector or list should be compatible with the \code{parms} vector used in the call to the solver
+    (see e.g. \link{bvpcol}).
   }
-  \item{forcings }{The names of the forcings to be used in the equations. 
-    These names will be known in the functions, and their values updated for each x when solving the model.
-    This vector should thus be compatible with the \code{forcingss} vector used in the call to the solver.
+  \item{yini }{The initial condition vector or a vector that contains the names of 
+    the state variables used in the equations. 
+    These names will be known in the compiled code. 
+    In addition the derivatives will be declared in the function, as follows: for a state varialbe called sv, 
+    then its corresponding derivative will be called dsv. 
+    The user must specify these derivatives in the code.
+    This vector should be compatible with the \code{yini} vector used in the call to the solver 
+    (see e.g. \link{bvpcol}).
+  }   
+  \item{forcings }{A vector with the names of the forcings to be used in the equations. 
+    These names will be declared in the compiled code, 
+    and their values updated for each \code{t} when solving the model.
+    This vector should be compatible with the \code{forcings} vector used in the call to the solver 
+    (see e.g. \link{bvpcol}).
   }
   \item{outnames }{The names of the output variables used in the equations. 
-    These names will be known in the functions, and their values used to update the ouput.
-    This vector should thus be compatible with the \code{outnames} vector used in the call to the solver.
-  }
-  \item{yini }{The initial condition vector or a vector that contains the names of the state variables used in the equations. 
-    These names will be known in the functions; also the derivatives will be declared in the function.
-    If a state varialbe is called sv, 
-    then its corresponding derivative will be called dsv; the user must specify the derivative in the code.    
-    This vector should be compatible with the \code{yini} vector used in the call to the solver.
+    These names will be known in the compiled code, and the user needs to specify their values.
+    These values will then be used to update the ouput.
+    This vector should be compatible with the \code{outnames} vector used in the call to the solver
+    (see e.g. \link{bvpcol}).
   }
   \item{declaration }{Text that enters the declaration section in each function.
   }
-  \item{includes }{Code that comes before the functions.
+  \item{includes }{Code that comes before the functions (e.g. extra function or subroutine used, global variables (C) etc...
   }
-  \item{language }{A character vector that specifies the source code; 
-    one of c("F95", "Fortran", "C++", "C") defaults to "F95".
+  \item{language }{A character vector that specifies the source code; one of c("F95", "Fortran", "C"); defaults to "F95".
   }
   \item{...}{optional arguments to the generic function (not used).
   }
 }
 \value{
-  An object of class \code{CFunc} or \code{CFuncList}, as from the package  \code{inline}. 
+  An object of class \code{CFunc} or \code{CFuncList}, as defined in the package  \code{inline}. 
   
   Each object of class \code{CFunc} can be called with the appropriate arguments.
 }  
@@ -90,16 +107,16 @@ is defined by arguments \code{ipar} and \code{rpar} when calling the solver).
 \code{y}, and \code{f} and \code{dg} are double vectors of length \code{n}.
 \code{df} is a double precision matrix of dimension \code{n, n}.
 
-In case C or C++ are used all are pointers. 
+In case C is used all are pointers. 
 
-The variables n, x, y, should not be changed within the function; they are input only.
+The variables \code{i, n, x, y}, should not be changed within the function; they are input only.
 The user needs to specify \code{f, df, g}, and \code{dg} respectively.
 
 the values of \code{dg} and \code{df} are set to 0 at the beginning of the subroutine.
 }
 
 \note{
-
+These compiled codes do not work with \code{bvpshoot}.
 
 }
 \examples{
@@ -118,7 +135,7 @@ the values of \code{dg} and \code{df} are set to 0 at the beginning of the subro
 ## =============================================================================
 
 ## ------------------------
-## Inline Fortran, rewritten as first-order equations
+## F95, rewritten as first-order equations
 ## ------------------------
 x <- seq(-1, 1, length.out = 100)
 parms <- c(p = 1e-5)
@@ -147,7 +164,7 @@ cbnd <- compile.bvp(func = fbnd, jacfunc = fjac, bound = fbound,
   jacbound = fjacbound, parms = parms)
 
 # show the functions
-#print.CFunc(cbnd[[1]])
+printCode(cbnd$func)
 
 ## ------------------------
 ## Solution
@@ -162,7 +179,7 @@ plot(Sol, which = 1)
 ## ============================================================================
 
 ## ------------------------
-## Inline C++,
+## C code
 ## ------------------------
 x <- seq(-1, 1, length.out = 100)
 parms <- c(p = 1e-5)
@@ -178,13 +195,12 @@ fbound.C <- "
      g[0] = (y[0] - 0.1/sqrt(p + 0.01));
 "
 
-
 # compile it - passing parms defines common block
 cbnd.C <- compile.bvp(func = fbnd.C, bound = fbound.C, parms = parms,
    language = "C")
 
 # show the functions
-#print.CFunc(cbnd.C[[1]])
+printCode(cbnd.C$func)
 
 ## ------------------------
 ## Solution
@@ -195,7 +211,9 @@ print(system.time(Sol <- bvpcol(x = x, leftbc = 1, func = cbnd.C, order = 2,
 plot(Sol, which = 1)
 
 
-## ==================  tubular reactor with axial dispersion ===================
+## ==========================================================================
+## tubular reactor with axial dispersion 
+##
 ## y''=Pe(y'+Ry^n) Pe=1,R=2,n=2
 ## y'(0) = Pe (y(0)-1),
 ## y'(1)=0
@@ -233,9 +251,12 @@ sol2 <- bvpcol(func = cfreac2, x = seq(0, 1, by = 0.01), order = 2,
 
 plot(sol, sol2)
 
-## ==================  tubular reactor with axial dispersion ===================
+## ==========================================================================
+##
+## tubular reactor with axial dispersion
 ## but now R is a forcing function, linearly interpolated based on data
-## ==================  tubular reactor with axial dispersion ===================
+##
+## ==========================================================================
 
 parms <- c(Pe = 1)
 forcs <- "R"
@@ -261,13 +282,13 @@ sol2 <- bvpcol(func = cfreac.F, x = seq(0, 1, by = 0.01), order = 2,
 plot(sol, sol2)
 
 
-## =============================================================================
+## ==========================================================================
 ## a multipoint bvp
 ## dy1 = (y2 - 1)/2
 ## dy2 = (y1*y2 - x)/mu
 ## over interval [0,1]
 ## y1(1) = 0; y2(0.5) = 1
-## =============================================================================
+## ==========================================================================
 
 # The R-version
 
@@ -355,10 +376,20 @@ cout <- bvpcol (func = cdae, x = x, nmax = 1e4,
 plot(out1, cout, obs = ana)
 
 }
-
 }
 \author{
   Karline Soetaert <karline.soetaert@nioz.nl>
+}
+\references{
+
+Karline Soetaert, Thomas Petzoldt, R. Woodrow Setzer.
+  R Package deSolve, Writing Code in Compiled Languages.
+  package vignette.
+
+Francesca Mazzia, Jeff R Cash and Karline Soetaert (2014). 
+Solving boundary value problems in the open source software R: Package bvpSolve.
+Opuscula mathematica_, *34*(2), pp. 387-403. 
+\url{http://dx.doi.org/10.7494/OpMath.2014.34.2.387}
 }
 
 \keyword{ utilities }

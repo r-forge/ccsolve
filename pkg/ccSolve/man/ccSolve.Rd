@@ -38,9 +38,6 @@
 \author{
   Karline Soetaert (Maintainer)
 }
-\references{
-
-}
 \seealso{
   \code{\link{ode}} solver from the deSolve package.
 

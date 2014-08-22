@@ -1,13 +1,20 @@
 Package: ccSolve
 Version: 0.01
-Title: compiled code interface for solver packages deSolve, bvpSolve, rootSolve
-Author: Karline Soetaert <karline.soetaert@nioz.nl>
+Title: Solving numerical problems in compiled code
+Authors@R: c(person("Karline","Soetaert", role = c("aut", "cre"), 
+                     email = "karline.soetaert@nioz.nl"),
+             person("minpack.lm authors", role = "ctb"),
+             person("minpack authors", role = "cph"),
+             person("R-core", role = "ctb"))
+Author: Karline Soetaert [aut, cre],  
+        minpack.lm authors [ctb],
+        minpack authors [cph],
+        R-core [ctb]
 Maintainer: Karline Soetaert <karline.soetaert@nioz.nl>
-Depends: R (>= 2.01), deSolve, bvpSolve, rootSolve
-Description: Functions to solve differential equation problems and root solving
-   problems using inline compiled code, written as the body of Fortran, 
-   F95, C (and C++) code.
-License: GPL (>= 2)
+Depends: R (>= 3.1.1), deSolve, bvpSolve, rootSolve, minpack.lm
+License: GPL-3 + file LICENSE
+Description: Functions for solving differential equations, roots of nonlinear equations, 
+   optimization and least squares problems using compiled code. 
 LazyData: yes
 
 

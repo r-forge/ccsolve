@@ -21,7 +21,7 @@ setClass( "CFuncList", contains = "list" )
 Cfunction <- function (sig = character(), body = character(), includes = character(), 
     otherdefs = character(), language = c("C++", "C", "Fortran", 
         "F95", "ObjectiveC", "ObjectiveC++"), verbose = FALSE, 
-        dim = NULL, implicit = NULL, ## Karline: added
+        dim = NULL, implicit = NULL, module = NULL, ## Karline: added
     convention = c(".Call", ".C", ".Fortran"), #Rcpp = FALSE, 
     cppargs = character(), cxxargs = character(), libargs = character()) 
 {
@@ -185,12 +185,13 @@ Cfunction <- function (sig = character(), body = character(), includes = charact
               } 
             } 
              
-            if (is.character(implicit))         # implicit declaration overruled
+            if (is.character(module))         # implicit declaration overruled
+              funCsig <- paste(funCsig, lead, "USE ", module, "\n", sep = "")    ### KARLINE            if (is.character(implicit))         # implicit declaration overruled
               funCsig <- paste(funCsig, lead, "IMPLICIT ", implicit, "\n", sep = "")    ### KARLINE ADDED
             code <- paste(code, funCsig, decls, collapse = "\n", sep = "")
             code <- paste(code, paste(body[[i]], collapse = "\n", sep = ""), ### Karline added sep=""
                 sep = "")
-            code <- paste(code, "\n", lead, "RETURN\n", lead, "END\n", 
+            code <- paste(code, "\n", lead, "RETURN\n", lead, "END\n\n", 
                 sep = "")
         }
     }
