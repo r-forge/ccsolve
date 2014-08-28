@@ -150,6 +150,9 @@ print(system.time(out2 <- daspk(times = times, res = cDAE, y = yini,
 
 plot(out, out2)
 
+# function value
+ccfunc(cDAE, y = yini, dy = dyini, times = 1, parms = NULL)
+
 ## =======================================================================
 ##
 ## The chemical model example of daspk, implemented as a DLL
@@ -259,7 +262,7 @@ outb <- daspk (y = yini, dy = dyini, res = cpendulum,
 
 plot(out, outb, which = 1:4)
 }
-}
+}                                                                                          
 \author{
   Karline Soetaert <karline.soetaert@nioz.nl>
 }

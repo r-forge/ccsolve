@@ -1065,7 +1065,7 @@ There are several ways to pass data to the compiled code.
 \item All subroutines in compiled code have the arguments \code{rpar} and \code{ipar},
 a double precision and integer vector, that are passed with arguments of the same name
 when calling the solver. The elements in these vectors are unnamed, and can be 
-used for input and output. For differential equation solvers, they are used to 
+used for input. For differential equation solvers, they are also used to 
 contain the output variables. See vignette (`compiledCode') \citep{compiledCode}
 \item \code{parms} is to contain the values of named parameters, whose length is 
  known during compilation. They are declared in a common block (\proglang{Fortran}) or as global

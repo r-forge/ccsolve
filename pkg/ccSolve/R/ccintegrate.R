@@ -36,6 +36,7 @@ ccintegrate <- function(f, lower, upper, ..., subdivisions = 100L,
       } else if (is.loaded(f, PACKAGE = dllname, type = "") ||
         is.loaded(f, PACKAGE = dllname, type = "Fortran"))  {
         f <- getNativeSymbolInfo(f, PACKAGE = dllname)$address
+        n <- length(x)
         ff <- function(x) .Call("f", n = length(x), as.double(x), f = rep(1, n), as.double(rpar), as.integer(ipar))$f
 
       } else 

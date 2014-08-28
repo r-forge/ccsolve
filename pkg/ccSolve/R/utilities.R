@@ -17,6 +17,8 @@ ccfunc <- function(fn, ...) {
     out <- ccfunc.optim(fn, ...)
   else if (Call %in% c("compile.optimize", "compile.uniroot"))
     out <- ccfunc.optimize(fn, ...)
+  else if (Call == "compile.dae")
+    out <- ccfunc.dae(fn, ...)
   else  
     stop("No function evaluation possible for fn compiled with ", Call)
 
@@ -272,16 +274,22 @@ ccfunc.de <- function (func, times, y, parms, dllname = NULL, initfunc = dllname
       if (!cl %in% c("compile.ode", "compile.steady", "compile.bvp", "compile.multiroot"))
         stop ("problem is not compiled with 'compile.ode' or 'compile.steady'")
 
-    out <- DLLfunc(, y, dy, as.double(times[1]), Func, 
-        ModelInit, as.double(parms), as.integer(nout), as.double(rpar), 
-        as.integer(ipar), as.integer(1), flist, PACKAGE = "deSolve")
-    vout <- if (nout > 0) 
-        out[(n + 1):(n + nout)]
-    else NA
-    out <- list(dy = out[1:n], var = vout)
-    if (!is.null(Ynames)) 
-        names(out$dy) <- Ynames
-    if (!is.null(outnames)) 
-        names(out$var) <- outnames
+    out <- DLLfunc(func, times, y, parms, dllname, initfunc, 
+      rpar, ipar, nout, outnames, forcings, initforc, fcontrol)
+    return(out)
+}
+
+## ==========================================================================
+ccfunc.dae <- function (res, times, y, dy, parms, dllname = NULL, initfunc = dllname, 
+    rpar = NULL, ipar = NULL, nout = 0, outnames = NULL, forcings = NULL, 
+    initforc = NULL, fcontrol = NULL) 
+{
+    cl <- attributes(res)$call
+    if (! is.null(cl))
+      if (!cl == "compile.dae")
+        stop ("problem is not compiled with 'compile.dae'")
+
+    out <- DLLres(res, times, y, dy, parms, dllname, initfunc, 
+      rpar, ipar, nout, outnames, forcings, initforc, fcontrol)
     return(out)
 }
