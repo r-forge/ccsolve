@@ -1,18 +1,21 @@
 \name{printCode}
 \alias{printCode}
+\alias{ccfunc}
 \alias{save.cc}
 \alias{load.cc}
 \title{
   Utilities for ccSolve.
 }
 \description{
-  prints generated codes and code snippets; saves and loads compiled codes
+  prints generated codes and code snippets; saves and loads compiled codes;
+  retrieves function values of compiled code problems.
 }
 
 \usage{
 printCode(x)
 save.cc(x, file)
 load.cc(file)
+ccfunc(fn, ...)
 }
 \arguments{
   \item{x }{Code (snippit) or compiled object
@@ -20,6 +23,11 @@ load.cc(file)
   \item{file }{The name of the file where the compiled code object will be saved
    or loaded from. For use with \code{load.cc}, the extension of the file name 
    should be `.cc'.
+  } 
+  \item{fn }{The compiled object whose function value should be retrieved.
+  } 
+  \item{... }{Arguments required to estimate function value, as passed to the 
+    solution method. 
   } 
 
 }
@@ -45,8 +53,11 @@ f(2) = 2*x(2) + 3
 f(3) = x(3)*(x(1)+1)"
 rfun <- compile.multiroot(String)
 printCode(rfun)
-multiroot(rfun, 1:3)
+(res <- multiroot(rfun, 1:3))
 
+# function value
+ccfunc(rfun, 1:3)
+ccfunc(rfun, res$root)
 \dontrun{
 
 # save the compiled code for later use - will create two files

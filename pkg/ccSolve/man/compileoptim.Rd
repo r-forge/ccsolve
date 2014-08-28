@@ -2,7 +2,7 @@
 \alias{compile.optim}
 \alias{ccoptim}
 
-\title{Compiled code optimization and single root finding}
+\title{Compiled code optimization}
 \description{
   \code{compile.optim} generates compiled code 
   for multi-variable optimization. It should be solved with \code{ccoptim}.
@@ -97,8 +97,6 @@
 \value{
   \code{compile.optim} returns an object of class \code{CFunc} or 
   \code{CFuncList}, as defined in the package  \code{inline}. 
-  
-  Each object of class \code{CFunc} can be called with the appropriate arguments
 }  
 
 \details{
@@ -169,6 +167,7 @@ optim(c(-1.2,1), fr)
 ccoptim(c(-1.2, 1), ccfr)
 optim(c(-1.2,1), fr, grr, method = "BFGS", hessian = TRUE)
 ccoptim(c(-1.2,1), ccfr, method = "BFGS", hessian = TRUE)
+
 ## These do not converge in the default number of steps
 optim(c(-1.2,1), fr, grr, method = "CG")
 ccoptim(c(-1.2,1), ccfr, method = "CG")
@@ -176,6 +175,10 @@ optim(c(-1.2,1), fr, grr, method = "CG", control = list(type = 2))
 ccoptim(c(-1.2,1), ccfr, method = "CG", control = list(type = 2))
 optim(c(-1.2,1), fr, grr, method = "L-BFGS-B")
 ccoptim(c(-1.2,1), ccfr, method = "L-BFGS-B")
+
+# retrieve function value for initial estimates and 'best'
+ccfunc(ccfr, c(-1.2, 1))
+ccfunc(ccfr, c(1.00026, 1.000506))
 
 ## =======================================================================
 ## example 2 -  a larger Rosenbrock function  (as from optimx package)
@@ -230,9 +233,8 @@ printCode(ccDNasef)
 ccDNase.C <- compile.optim(func = '
  int i;
  double ff; 
- int ndat = sizeof(conc)/sizeof(conc[0]);
  *f = 0.;
- for (i = 0; i < ndat; i++){
+ for (i = 0; i < ndata; i++){
    ff = density[i] - 1.0/(1.0 + exp((xmid - log(conc[i]))/scal));
    *f = *f + ff*ff;
  }  
@@ -246,11 +248,7 @@ fmDNase2 <- ccoptim(f = ccDNasef, data = DNase1[,-1],
 fmDNase3 <- ccoptim(f = ccDNase.C, data = DNase1[,-1], 
   par = c(xmid = 0, scal = 1))
 
-fm2DNase2
-for ( i in 1:11)
-  print(ccnls(fn = ccDNase, par = c(xmid = 0, scal = 1),
-    data = subset(DNase, Run == i)[, -1])$par)
-
+fmDNase2
 }
 }
 \author{

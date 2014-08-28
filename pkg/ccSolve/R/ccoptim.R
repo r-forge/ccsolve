@@ -1,13 +1,12 @@
-# ------------------------------------------------------------------------------
-#
-#  Adaptation to compiled code of the R-functions optim and optimize
-#
-#  Copyright (C) optim and optimize 2000-12 The R Core Team
-#
-#  Adaptation for use with compiled code by Karline Soetaert
-#
-# ------------------------------------------------------------------------------
-
+## ==========================================================================
+##
+##  Adaptation to compiled code of the R-functions optim and optimize
+##
+##  Copyright (C) for optim and optimize 2000-12 The R Core Team
+##
+##  Adaptation for use with compiled code by Karline Soetaert
+##
+## ==========================================================================
 
 ccoptim <-
     function(par, fn, gr = NULL, ...,
@@ -18,9 +17,9 @@ ccoptim <-
              rpar = NULL, ipar = NULL)
 {
 
-  cl <- attributes(fn)$type
+  cl <- attributes(fn)$call
   if (! is.null(cl))
-    if (cl != "ccoptim")
+    if (cl != "compile.optim")
       stop ("problem is not compiled with 'compile.optim'")
       
   if (is.list(fn)) {            
@@ -152,9 +151,9 @@ ccoptimize <- function(f, interval, ...,
 		     maximum=FALSE, tol=.Machine$double.eps^0.25, 
          dllname = NULL, rpar = NULL, ipar = NULL)
 {
-  tt <- attributes(f)$type
+  tt <- attributes(f)$call
   if (! is.null(tt))
-    if (!tt %in% c("ccoptimize", "ccuniroot"))
+    if (!tt %in% c("compile.optimize", "compile.uniroot"))
       stop ("problem is not compiled with 'compile.optimize'")
 
   if (is.list(f)) { 
@@ -192,3 +191,86 @@ ccoptimize <- function(f, interval, ...,
 
 ## 
 ccoptimise <- ccoptimize
+
+ccfunc.optimize <- function(f, x, rpar = NULL, ipar = NULL)
+   f$func(x, f = 1, rpar, ipar)$f
+
+
+ccfunc.optim <-
+    function(fn, par, data = NULL, dllname = NULL, initfunc = NULL,
+             rpar = NULL, ipar = NULL)
+{
+
+  cl <- attributes(fn)$call
+  if (! is.null(cl))
+    if (cl != "compile.optim")
+      stop ("problem is not compiled with 'compile.optim'")
+      
+  if (is.list(fn)) {            
+      
+      if (! is.null(data) & ! is.null(Dnames <- attributes(fn)$datanames))
+       if (getnames(data) != Dnames )
+         stop ("'data' not compatible with data used to compile 'fn'")
+      if (!is.null(dllname) & "dllname" %in% names(fn))
+         stop("If 'fn' is a list that contains dllname, argument 'dllname' should be NULL")
+      if (!is.null(initfunc) & "initfunc" %in% names(fn))
+         stop("If 'fn' is a list that contains initfunc, argument 'initfunc' should be NULL")
+
+     dllname <- fn$dllname
+     initfunc <- fn$initfunc
+     fn <- fn$func
+  }
+
+    if (! isvalid(fn))
+      stop("'fn' should be either a compiled function or a character vector")
+
+    if (is.character(fn) & is.null(dllname))  
+      stop("'dllname' should have a value if 'fn' is a character")
+
+    if (sum(duplicated (c(fn, initfunc))) > 0)
+      stop("fn, initfunc cannot be the same")
+
+    if (class (fn) == "CFunc")
+       fn1 <- body(fn)[[2]]
+     else if (is.loaded(fn, PACKAGE = dllname, type = "") ||
+       is.loaded(fn, PACKAGE = dllname, type = "Fortran"))  {
+       fn1 <- getNativeSymbolInfo(fn, PACKAGE = dllname)$address
+     } else 
+       stop(paste("'fn' not loaded ", fn))
+
+    initfunc1 <- NULL
+
+    ndat <- ncoldat <- 0
+    if (!is.null(initfunc)) { # initfunc is associated with initialisation of data
+      if (is.null(data))
+        stop("if 'initfunc' has a value, 'data' should be passed")
+      data <- as.matrix(data)  
+      ndat <- nrow(data)
+      ncoldat <- ncol(data)    
+      storage.mode(data) <- "double"  
+    
+      if (class (initfunc) == "CFunc")
+        initfunc1 <- body(initfunc)[[2]]
+      else if (is.loaded(initfunc, PACKAGE = dllname, type = "") ||
+        is.loaded(initfunc, PACKAGE = dllname, type = "Fortran"))  {
+        initfunc1 <- getNativeSymbolInfo(initfunc, PACKAGE = dllname)$address
+      } else 
+        stop(paste("'initfunc' not loaded ", initfunc))
+    } else {
+      if (!is.null(data))
+        stop("if 'data' is passed, 'initfunc' should be present to initialise them")
+    }
+    
+    npar <- length(par)
+    
+    if (is.null(rpar))
+      rpar <- 0.
+    if (is.null(ipar))
+      ipar <- 0  
+    
+
+    out <- .Call("call_optim_func", par, fn1, initfunc1,  
+      as.integer(ndat), as.integer(ncoldat), data, as.double(rpar), 
+      as.integer(ipar), package = "ccSolve")
+    out
+}

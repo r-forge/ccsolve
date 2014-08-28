@@ -52,8 +52,6 @@ equations}
 }
 \value{
   An object of class \code{CFunc} or \code{CFuncList}, as from the package  \code{inline}. 
-  
-  Each object of class \code{CFunc} can be called with the appropriate arguments
 }  
 \details{
 
@@ -103,6 +101,9 @@ model.f <- "
 "
 cmodel <- compile.multiroot(model.f)
 (SS <- multiroot(f = cmodel, start = c(1,1)))
+
+# retrieve function value
+ccfunc(cmodel, SS$root)
 
 # same with x and parameter 'names' and in C
 

@@ -74,13 +74,17 @@ declare.dnames <- function(d, language, includes, isnls = TRUE) {
      module <- "modnlsdata"
 
      dol <- paste(dol, lead, "subroutine initdat(nlsdat, m)\n use modnlsdata\n external nlsdat \n integer m\n\n", sep ="")
-     if (! isnls)
-       dol <- paste(dol, lead, " ndata = m\n", sep ="")
-     for (i in 1:length(dnames)) {
-       dol <- paste(dol,lead, " if (allocated(",dnames[i],")) deallocate(",dnames[i],")\n", sep ="")
-       dol <- paste(dol,lead, " allocate(",dnames[i],"( m))\n", sep ="")
-       dol <- paste(dol,lead, " call nlsdat(", i, ",",dnames[i]," )\n", sep ="")
+     if (! isnls) {
+       dol <- paste(dol, lead, " if (m >= 0) ndata = m\n", sep ="")
      }
+     for (i in 1:length(dnames)) 
+       dol <- paste(dol,lead, " if (allocated(",dnames[i],")) deallocate(",dnames[i],")\n", sep ="")
+
+     dol <- paste(dol,lead, " if (m <= 0) return\n", sep ="")
+     for (i in 1:length(dnames)) 
+       dol <- paste(dol,lead, " allocate(",dnames[i],"( m))\n", sep ="")
+     for (i in 1:length(dnames)) 
+       dol <- paste(dol,lead, " call nlsdat(", i, ",",dnames[i]," )\n", sep ="")
      dol <- paste(dol,lead,"\nreturn\nend\n", sep ="")   
 
   } else  { # C
@@ -94,8 +98,10 @@ declare.dnames <- function(d, language, includes, isnls = TRUE) {
 #     dol <- paste(dol, "extern \"C\" void initdat(void(*));\n") 
     
      dol <- paste(dol, "void initdat(void (* nlsdat)(int *, double *), int *m){\n int i;\n", sep = "")    
+       dol <- paste(dol, " if (*m <= 0) return;\n", sep ="")
+
      if (! isnls)
-       dol <- paste(dol, " ndata = m;\n", sep ="")
+       dol <- paste(dol, " ndata = *m;\n", sep ="")
      for (i in 1:length(dnames)) {
        dol <- paste(dol, dnames[i]," =(double *)R_alloc(*m, sizeof(double));\n");     
        dol <- paste(dol, "i = ", i,"; nlsdat(&i,", dnames[i] , ");\n", sep = " ")
@@ -125,13 +131,14 @@ compile.nls <- function(func, jacfunc = NULL, data, par = NULL,
   out <- compileDE(func, Data = data, jacfunc = jacfunc,
      header = DD$header, header2 = DD$header2, module = dn$module, 
      includes = dn$includes, language = language, type = 5, ...)
+
+# make sure that a direct call to out$func does not break R: (will not work anyway)
+  fn <- out$func
+  body(fn)$ndat <- 0
+  out$func@.Data <- fn
+  
   attr(out, "call") <- "compile.nls"
   attr(out, "Dnames") <- getnames(data)
   out   
 }
-
-#ccDNase <- compile.nls(func = "f = density - 1/(1 + dexp((xmid - dlog(conc))/scal))",
-#  parms = c(xmid = 0, scal = 1), data = DNase1)
-#ccDNase <- compile.nls(func = "int i;\n for (i = 0; i<*ndat; i++);\nf[i] = density[i] - 1/(1 + exp((xmid - log(conc[i]))/scal));",parms = c(xmid = 0, scal = 1), data = DNase1, language = "C")
-
 

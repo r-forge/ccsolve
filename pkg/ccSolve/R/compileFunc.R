@@ -175,6 +175,19 @@ compile.multiroot <- function(func, jacfunc = NULL, parms = NULL, x = NULL,
 
 # =============================================================================
 
+compile.integrate <- function(func, declaration = character(), includes = character(),      
+    language = "F95", ...) {
+
+   out <- compileDE(func, header = declaration, 
+     includes = includes, language = language, type = 7, ...)
+
+  attr(out, "call") <- "compile.integrate"
+  out   
+
+}    
+
+# =============================================================================
+
 compile.optim <- function(func, jacfunc = NULL, data = NULL, par = NULL, 
   declaration = character(), includes = character(), language = "F95", ...) {
   if (is.null(data)) {
@@ -187,7 +200,7 @@ compile.optim <- function(func, jacfunc = NULL, data = NULL, par = NULL,
    DD <- declare.ynames(par, language, declaration, "x", FALSE)
    if(any(mapply(data[1,], FUN = is.factor))) stop ("data should not contain factors")
 
-   dn <- declare.dnames (data, language, includes)
+   dn <- declare.dnames (data, language, includes, FALSE)
        
    out <- compileDE(func, Data = data, jacfunc = jacfunc,
      header = DD$header, header2 = DD$header2, module = dn$module, 
@@ -436,10 +449,10 @@ create.func <- function (body, header, language, convention,
    else if (type == 4)                  # root
      sig <- signature(n = "integer", t = "numeric", 
        x = "numeric", f = "numeric", rpar = "numeric", ipar = "integer")
-   else if (type == 3) {                # min
+   else if (type == 3) {                # optim
      sig <- signature(n = "integer", x = "numeric", 
        f = "numeric", rpar = "numeric", ipar = "integer")
-    dim <- c("", "(*)", "", rep("(*)", 2))
+    dim <- c("", "(n)", "", rep("(*)", 2))
    } else if (type == 5) {                # nls
      sig <- signature(n = "integer", ndat = "integer", x = "numeric", 
        f = "numeric", rpar = "numeric", ipar = "integer")
@@ -448,6 +461,10 @@ create.func <- function (body, header, language, convention,
      sig <- signature(x = "numeric", 
        f = "numeric", rpar = "numeric", ipar = "integer")
      dim <- c("", "", rep("(*)", 2))
+   }    else if (type == 7) {                # integrate
+     sig <- signature(n = "integer", x = "numeric", 
+       f = "numeric", rpar = "numeric", ipar = "integer")
+    dim <- c("", rep("(n)", 2), rep("(*)", 2))
    } else
      stop ("'type' not known")
   

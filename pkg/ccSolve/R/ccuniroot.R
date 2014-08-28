@@ -1,11 +1,24 @@
-## ============================================================================
-## Compiled version of uniroot - note: we use the simpler version before 3...
-## and ignoring flower and fupper input
-## ============================================================================
+## ==========================================================================
+##
+##  Adaptation to compiled code of the R-function uniroot 
+##
+##  Copyright (C) for uniroot 2000-12 The R Core Team
+##
+##  note: based on the simpler uniroot version pre R 3.1 
+##  ignoring flower and fupper input
+##  adaptation by Karline Soetaert
+##
+## ==========================================================================
 
 ccuniroot <- function (f, interval, ..., lower = min(interval), upper = max(interval), 
-    tol = .Machine$double.eps^0.25, maxiter = 1000, dllname = NULL, rpar = NULL, ipar = NULL) 
+    tol = .Machine$double.eps^0.25, maxiter = 1000, 
+    dllname = NULL, rpar = NULL, ipar = NULL) 
 {
+
+    cl <- attributes(f)$call
+    if (! is.null(cl))
+      if (!cl %in% c("compile.uniroot", "compile.optimize"))
+        stop ("problem is not compiled with 'compile.uniroot'")
 
   if (is.list(f)) {       
       if (!is.null(dllname) & "dllname" %in% names(f))
@@ -48,6 +61,8 @@ ccuniroot <- function (f, interval, ..., lower = min(interval), upper = max(inte
     list(root = val[1L], f.root = val[4L], iter = iter, 
         estim.prec = val[3L])
 }
+
+# Adaptation of function uniroot.all from the R-package rootSolve.
 
 ccuniroot.all <- function (f, interval, lower = min(interval), upper = max(interval), 
     tol = .Machine$double.eps^0.25, maxiter = 1000, n = 100, ..., dllname = NULL, 

@@ -87,8 +87,6 @@
 }
 \value{
   An object of class \code{CFunc} or \code{CFuncList}, as defined in the package  \code{inline}. 
-  
-  Each object of class \code{CFunc} can be called with the appropriate arguments.
 }  
 \details{
 
@@ -168,7 +166,7 @@ Chaos.f <- "
 "
 cChaos <- compile.ode(Chaos.f) 
 # Show the complete code
-printCode(cChaos$func)
+printCode(cChaos)
 
 # ---------------------
 # + parameters, C code
@@ -180,7 +178,7 @@ Chaos.C <- "
 "
 parms <- c(a = -8.0/3, b = -10.0, c = 28.0)
 cChaos2 <- compile.ode(Chaos.C, language = "C", parms = parms) 
-printCode(cChaos2$func)
+printCode(cChaos2)
 
 # ---------------------
 # running all  

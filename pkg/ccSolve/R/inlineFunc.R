@@ -251,18 +251,6 @@ Cfunction <- function (sig = character(), body = character(), includes = charact
 }
 
 
-# =============================================================================
-# Print the compiled function call
-# =============================================================================
-
-print.CFun  <- function(x){
-   code <- x@code
-        cat("Program source:\n")
-        lines <- strsplit(code, "\n")
-        for (i in 1:length(lines[[1]])) cat(format(i, width = 3), 
-            ": ", lines[[1]][i], "\n", sep = "")
-    }
-
 CompileCode <- function (f, code, language, verbose) 
 {
     wd = getwd()

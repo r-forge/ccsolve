@@ -75,8 +75,6 @@
 }
 \value{
   An object of class \code{CFunc} or \code{CFuncList}, as defined in the package \code{inline}. 
-  
-  Each object of class \code{CFunc} can be called with the appropriate arguments
 }  
 \details{
 

@@ -82,8 +82,6 @@
 }
 \value{
   An object of class \code{CFunc} or \code{CFuncList}, as defined in the package  \code{inline}. 
-  
-  Each object of class \code{CFunc} can be called with the appropriate arguments.
 }  
 \details{
 
@@ -95,9 +93,9 @@ They are defined as:
 
  \code{jacfunc(n, x, y, df, rpar, ipar) }
 
- \code{bound(i, n, x, y, g, rpar, ipar) }
+ \code{bound(i, n, y, g, rpar, ipar) }
 
- \code{jacbound(i, n, x, y, dg, rpar, ipar) }
+ \code{jacbound(i, n, y, dg, rpar, ipar) }
 
 In case Fortran or F95 is used, \code{n, i} are an integer value, \code{x} is a double value, 
 
@@ -164,7 +162,7 @@ cbnd <- compile.bvp(func = fbnd, jacfunc = fjac, bound = fbound,
   jacbound = fjacbound, parms = parms)
 
 # show the functions
-printCode(cbnd$func)
+printCode(cbnd)
 
 ## ------------------------
 ## Solution
@@ -200,7 +198,7 @@ cbnd.C <- compile.bvp(func = fbnd.C, bound = fbound.C, parms = parms,
    language = "C")
 
 # show the functions
-printCode(cbnd.C$func)
+printCode(cbnd)
 
 ## ------------------------
 ## Solution

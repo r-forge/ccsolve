@@ -2,7 +2,7 @@
  This is an adaptation of the file "optim.c", optimize.c and "zeroin.c" that is 
  part of the R-core software.
 
- It has been adapted to work with problems working in compiled code
+ It has been adapted to work with problems defined in compiled code
  by Karline Soetaert.
   
  .. removed underscore in error(_(
@@ -183,7 +183,7 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP initfunc, SEXP method, SEXP opt
     int ifail = 0;
     double *dpar, *opar, val = 0.0, abstol, reltol, temp;
     const char *tn;
-    C_init_dat_type *initializer;
+    C_init_dat_type *initializer = NULL;
 
     OptStruct OS;
 
@@ -206,7 +206,7 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP initfunc, SEXP method, SEXP opt
        error("'fn' is not a compiled function");
     fcall = (C_func_type *) R_ExternalPtrAddr(fn);  
 
-    if (! isNull(initfunc)) {   /* data are passed with initfunc to inialise them*/
+    if (! isNull(initfunc)) { /* data are passed with initfunc to inialise them*/
       if (!inherits(initfunc, "NativeSymbol")) 
         error("'initfunc' is not a compiled function");
       nrowdat = INTEGER(Ndat)[0];
@@ -393,6 +393,11 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP initfunc, SEXP method, SEXP opt
     } else
 	error("unknown 'method'");
 
+    if (! isNull(initfunc)) {   /* free allocated memory */
+      np = -99;  
+      initializer(&Initstdat, &np);
+    }
+
     if(!isNull(OS->names)) setAttrib(par, R_NamesSymbol, OS->names);
     REAL(value)[0] = val * (OS->fnscale);
     SET_VECTOR_ELT(res, 0, par); SET_VECTOR_ELT(res, 1, value);
@@ -403,6 +408,65 @@ SEXP call_optim(SEXP par, SEXP fn, SEXP gr, SEXP initfunc, SEXP method, SEXP opt
     UNPROTECT(4);
     return res;
 }
+
+
+
+/* function call */                              
+SEXP call_optim_func(SEXP par, SEXP fn, SEXP initfunc, 
+    SEXP Ndat, SEXP Ncol, SEXP Dat, SEXP Rpar, SEXP Ipar)
+{
+    SEXP value;
+    int i, np, npar=0;
+    double *dpar, val = 0.0;
+    C_init_dat_type *initializer = NULL;
+
+    np = LENGTH(Ipar);
+    ipar = (int *) R_alloc(np, sizeof(int));
+    for (i = 0; i < np; i++)
+      ipar[i] = INTEGER(Ipar)[i];
+
+    np = LENGTH(Rpar);
+    rpar = (double *) R_alloc(np, sizeof(double));
+    for (i = 0; i < np; i++)
+      rpar[i] = REAL(Rpar)[i];
+
+    if (!inherits(fn, "NativeSymbol")) 
+       error("'fn' is not a compiled function");
+    fcall = (C_func_type *) R_ExternalPtrAddr(fn);  
+
+    if (! isNull(initfunc)) {   /* data are passed with initfunc to inialise them*/
+      if (!inherits(initfunc, "NativeSymbol")) 
+        error("'initfunc' is not a compiled function");
+      nrowdat = INTEGER(Ndat)[0];
+      ncoldat = INTEGER(Ncol)[0];
+      np = LENGTH (Dat);  
+      data = (double *) R_alloc(np, sizeof(double));
+      for (i = 0; i < np; i++)
+       data[i] = REAL(Dat)[i];    
+    
+/* initialiser function for data*/
+      initializer = (C_init_dat_type *) R_ExternalPtrAddr(initfunc);
+      initializer(&Initstdat, &nrowdat);
+    }
+
+    npar = LENGTH(par);
+    dpar = vect(npar);
+    for (i = 0; i < npar; i++)
+	    dpar[i] = REAL(par)[i] ;
+
+    fcall(&npar, dpar, &val, rpar, ipar);    
+
+    if (! isNull(initfunc)) {   /* free allocated memory */
+      np = -99;  
+      initializer(&Initstdat, &np);
+    }
+    PROTECT(value = NEW_NUMERIC(1));
+
+    REAL(value)[0] = val;
+    UNPROTECT(1);
+    return value;
+}
+
 
 /* par fn gr options */ 
 SEXP call_optimhess(SEXP par, SEXP fn, SEXP gr, SEXP options, SEXP Rpar, SEXP Ipar)
@@ -887,3 +951,4 @@ double R_zeroin2(			/* An estimate of the root */
     *Maxit = -1;
     return b;
 }
+

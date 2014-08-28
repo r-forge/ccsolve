@@ -126,6 +126,8 @@ printCode(cf)
 system.time(for (i in 1:1000)
   ccuniroot(cf, lower = -2, upper = 2, tol = 1e-10) 
 )
+# retrieve function value
+ccfunc(cf, -1.191488)
 
 ## =========================================================================
 ## uniroot.all

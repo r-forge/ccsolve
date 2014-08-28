@@ -1,3 +1,36 @@
+## ============================================================================
+## function evaluation of compiled code objects
+## ============================================================================
+
+ccfunc <- function(fn, ...) {
+  Call <- attributes (fn)$call
+
+  if (Call == "compile.nls")
+    out <- ccfunc.ccnls(fn, ...)
+  else if (Call %in% c("compile.ode", "compile.steady"))
+    out <- ccfunc.de(fn, ...)
+  else if (Call %in% c("compile.bvp"))
+    out <- ccfunc.bvp(fn, ...)
+  else if (Call == "compile.multiroot")
+    out <- ccfunc.multiroot(fn, ...)
+  else if (Call == "compile.optim")
+    out <- ccfunc.optim(fn, ...)
+  else if (Call %in% c("compile.optimize", "compile.uniroot"))
+    out <- ccfunc.optimize(fn, ...)
+  else  
+    stop("No function evaluation possible for fn compiled with ", Call)
+
+  out    
+}
+
+ccfunc.multiroot <- function(fn, start, parms = NULL, ...) {
+  ccfunc.de(fn, times = 0, y = start, parms = parms, ...)$y  
+}
+ccfunc.bvp <- function(fn, yini, x, ...) {
+  ccfunc.de(fn, times = x, y = yini, ...)$y  
+}
+  
+
 getnames <- function (x) 
   if(is.matrix(x)) return(colnames(x)) else return(names(x))
 
@@ -159,6 +192,11 @@ create.ynamesc <- function (ynames) {
 
 declare.ynames <- function(y, language, header, label = "y", dy = TRUE) {
 
+  if (language == "Fortran")
+    lead <- "        "
+  else
+    lead <- ""  
+
   tail <- character() 
   header2 <- character()
   if (! is.null(y))
@@ -172,22 +210,22 @@ declare.ynames <- function(y, language, header, label = "y", dy = TRUE) {
   if (! is.null(ynames) & language %in% c("F95", "Fortran")){
      dynames <- paste("d", ynames, sep="")
      header <- paste(header, 
-         "\n        double precision ", paste(ynames, collapse = ", "))
+         "\n", lead, " double precision ", paste(ynames, collapse = ", "))
      if (dy) 
        header <- paste(header, 
-         "\n        double precision ", paste(dynames, collapse = ", "),"\n")
+         "\n", lead, " double precision ", paste(dynames, collapse = ", "),"\n")
 
      dol <- "\n"
      for (i in 1:length(ynames))
        dol <- paste(dol,    
-           "        " , ynames[i]," = ", label, "(", i,")\n", collapse = "", sep = "")
+           lead , " ", ynames[i]," = ", label, "(", i,")\n", collapse = "", sep = "")
      header2 <- dol
   
      if (dy) {
       tail <- "\n"
       for (i in 1:length(dynames))
         tail <- paste(tail,    
-            "        f(" , i,") = ",dynames[i],"\n", collapse = "", sep = "")
+            lead, " f(" , i,") = ",dynames[i],"\n", collapse = "", sep = "")
      }       
   } else if (! is.null(ynames)){ # C
      dynames <- paste("d", ynames, sep="")
@@ -198,14 +236,14 @@ declare.ynames <- function(y, language, header, label = "y", dy = TRUE) {
      dol <- "\n"
      for (i in 1:length(ynames))
        dol <- paste(dol, 
-           "        " , ynames[i]," = ",label,"[", i-1,"];\n", collapse = "", sep = "")
+           lead, " " , ynames[i]," = ",label,"[", i-1,"];\n", collapse = "", sep = "")
      header2 <- dol
   
      if (dy) {
       tail <- "\n"
       for (i in 1:length(dynames))
         tail <- paste(tail,    
-           "        f[" , i-1,"] = ",dynames[i],";\n", collapse = "", sep = "")
+           lead, " f[" , i-1,"] = ",dynames[i],";\n", collapse = "", sep = "")
      }
   }
   list(header = header, header2 = header2, tail = tail)
@@ -224,3 +262,26 @@ checkinput <- function (body, header, fun) {
     stop ("'header' should be a character string or NULL, in ", fun)
 } 
   
+## ==========================================================================
+ccfunc.de <- function (func, times, y, parms, dllname = NULL, initfunc = dllname, 
+    rpar = NULL, ipar = NULL, nout = 0, outnames = NULL, forcings = NULL, 
+    initforc = NULL, fcontrol = NULL) 
+{
+    cl <- attributes(func)$call
+    if (! is.null(cl))
+      if (!cl %in% c("compile.ode", "compile.steady", "compile.bvp", "compile.multiroot"))
+        stop ("problem is not compiled with 'compile.ode' or 'compile.steady'")
+
+    out <- DLLfunc(, y, dy, as.double(times[1]), Func, 
+        ModelInit, as.double(parms), as.integer(nout), as.double(rpar), 
+        as.integer(ipar), as.integer(1), flist, PACKAGE = "deSolve")
+    vout <- if (nout > 0) 
+        out[(n + 1):(n + nout)]
+    else NA
+    out <- list(dy = out[1:n], var = vout)
+    if (!is.null(Ynames)) 
+        names(out$dy) <- Ynames
+    if (!is.null(outnames)) 
+        names(out$var) <- outnames
+    return(out)
+}
