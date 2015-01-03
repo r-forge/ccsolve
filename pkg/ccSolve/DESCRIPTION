@@ -1,5 +1,5 @@
 Package: ccSolve
-Version: 0.01
+Version: 0.1
 Title: Solving numerical problems in compiled code
 Authors@R: c(person("Karline","Soetaert", role = c("aut", "cre"), 
                      email = "karline.soetaert@nioz.nl"),
@@ -11,7 +11,7 @@ Author: Karline Soetaert [aut, cre],
         minpack authors [cph],
         R-core [ctb]
 Maintainer: Karline Soetaert <karline.soetaert@nioz.nl>
-Depends: R (>= 3.1.1), deSolve, bvpSolve, rootSolve, minpack.lm
+Depends: R (>= 3.1.1), deSolve, bvpSolve, rootSolve, minpack.lm, methods
 License: GPL-3 + file LICENSE
 Description: Functions for solving differential equations, roots of nonlinear equations, 
    optimization and least squares problems using compiled code. 

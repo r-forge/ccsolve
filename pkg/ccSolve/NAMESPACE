@@ -1,16 +1,17 @@
 useDynLib(ccSolve)
 
+import(methods)
 import(rootSolve)
 import(deSolve)
 import(bvpSolve)
 import(minpack.lm)
-export(compile.bvp, compile.ode, compile.steady, 
-  compile.dae, compile.multiroot, compile.uniroot, 
-  compile.optimize, compile.optimise, compile.optim, 
+export(compile.bvp, compile.ode, compile.steady,
+  compile.dae, compile.multiroot, compile.uniroot,
+  compile.optimize, compile.optimise, compile.optim,
   compile.nls, compile.integrate,
-  printCode, load.cc, save.cc, 
-  ccoptim, ccoptimise, ccoptimize, ccuniroot, ccuniroot.all, 
-  ccnls, ccintegrate) 
+  printCode, load.cc, save.cc,
+  ccoptim, ccoptimise, ccoptimize, ccuniroot, ccuniroot.all,
+  ccnls, ccintegrate)
 export("ccfunc")
 
 

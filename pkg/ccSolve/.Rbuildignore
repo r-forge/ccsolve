@@ -5,6 +5,8 @@ inst/doc/.*[.]d
 inst/doc/.*[.]o
 inst/doc/.*[.]rc
 ^Rplots.pdf$
+vignettes/jss.cls
+vignettes/jss.bst
 work
 src/.*[.]dll
 todo.txt

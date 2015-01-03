@@ -31,13 +31,22 @@ ccintegrate <- function(f, lower, upper, ..., subdivisions = 100L,
       stop("'dllname' should have a value if 'f' is a character")
     if (class (f) == "CFunc") {
         f <- body(f)[[2]]
-        ff <- function(x) f(n = length(x), x, f = rep(1, n), rpar, ipar)$f
-
+        # thpe -> KS: changed the following line, please check
+        #ff <- function(x) f(n = length(x), x, f = rep(1, n), rpar, ipar)$f
+        ff <- function(x) {
+          n <- length(x)
+          f(n = length(x), x, f = rep(1, n), rpar, ipar)$f
+        }
       } else if (is.loaded(f, PACKAGE = dllname, type = "") ||
         is.loaded(f, PACKAGE = dllname, type = "Fortran"))  {
         f <- getNativeSymbolInfo(f, PACKAGE = dllname)$address
-        n <- length(x)
-        ff <- function(x) .Call("f", n = length(x), as.double(x), f = rep(1, n), as.double(rpar), as.integer(ipar))$f
+        # thpe -> KS: changed the following two lines, please check !!!
+        # n <- length(x)
+        # ff <- function(x) .Call("f", n = length(x), as.double(x), f = rep(1, n), as.double(rpar), as.integer(ipar))$f
+        ff <- function(x) {
+          n <- length(x)
+          .Call("f", n = length(x), as.double(x), f = rep(1, n), as.double(rpar), as.integer(ipar))$f
+        }
 
       } else 
         stop(paste("'f' not loaded ", f))
@@ -46,7 +55,6 @@ ccintegrate <- function(f, lower, upper, ..., subdivisions = 100L,
        rpar <- 0.
     if (is.null(ipar))
        ipar <- 0  
-
 
     limit <- as.integer(subdivisions)
     if (limit < 1L || (abs.tol <= 0 &&
